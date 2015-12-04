@@ -16,14 +16,12 @@ import collections
 
 POLY_VERTS = 31 # Filter Expand index
 
-def skin(xforms):
-    """ Given a list of transforms, return a dict with cached verts """
-    skins = set(pmc.mel.findRelatedSkinCluster(x) for x in xforms)
+def skin(skins):
+    """ Given a list of skins, return a dict with cached verts """
     cache = collections.defaultdict(list)
     for skin in skins:
         skin = pmc.PyNode(skin) # Nodify the skin string
         joints = skin.getInfluence() # Get joints affecting skin
-        geos = skin.getGeometry() # Get geometry affecting skin
         for joint in joints:
             pmc.select(clear=True)
             skin.selectInfluenceVerts(joint) # Select verts associated with joint
@@ -42,5 +40,5 @@ if __name__ == '__main__':
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
-    print skin([xform])
+    sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
+    print skin([sk])
