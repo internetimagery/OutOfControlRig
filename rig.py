@@ -37,11 +37,18 @@ class Control(object):
             sel = sel[0]
             if sel in s.geos: # Have we selected one of our meshes?
                 s.activate_rig()
+            else:
+                s.deactivate_rig()
 
     def activate_rig(s):
         """ turn on our rig """
         colour.paint(s.cache_all) # Paint everything grey
         print "turning on rig"
+
+    def deactivate_rig(s):
+        """ turn off the rig """
+        colour.paint(s.cache_all)
+        colour.erase(s.geos) # Clear our colour information
 
 if __name__ == '__main__':
     # Testing
