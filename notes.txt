@@ -1,10 +1,11 @@
 # Notes:
 
-# Check provided meshes for skin clusters
+# [DONE] Check provided meshes for skin clusters
 # [DONE] Get skin weights from clusters and pair them to joints
 # [DONE] Cache vertexes for colouring later.
 
-# Track selection change to switch to our context tool
+# [DONE] Track selection change
+# switch to our custom picker context tool
 # return colour back to normal if context clicks on something other than model
 # get point on surface clicked
 # associate it with a joints
