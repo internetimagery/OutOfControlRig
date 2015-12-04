@@ -22,12 +22,12 @@ class Picker(object):
         s.whitelist = set() # List of meshes to check against
         s.callback_click = set()
         s.callback_drag = set() # Callbacks
-        s.last_tool = None # Last tool used
+        s._last_tool = None # Last tool used
         s._create()
 
     def set(s):
         """ Activate Tool """
-        s.last_tool = pmc.currentCtx()
+        s._last_tool = pmc.currentCtx()
         # FOR DEBUG, REMOVE AND RECREATE TOOL EACH TIME IT IS CREATED
         s._create()
         # END DEBUG SECTION!! TODO: PUT THIS INTO ITS OWN CREATION FUNCTION AND CALL ONCE
@@ -35,7 +35,7 @@ class Picker(object):
 
     def unset(s):
         """ Set us back to the last tool """
-        pmc.setToolTo(s.last_tool)
+        pmc.setToolTo(s._last_tool)
 
     def _create(s):
         """ Create our tool """
@@ -48,6 +48,7 @@ class Picker(object):
             cursor="hand",
             image1="hands.png"
         )
+
     @property
     def active(s):
         """ Check if tool is currently active """
@@ -64,7 +65,6 @@ class Picker(object):
         mesh, ID = s._pick_point() # Get point in space
         for call in s.callback_drag:
             call(mesh, ID)
-
 
     def _pick_point(s):
         """ Pick a point on mesh from where user clicked """
@@ -89,9 +89,6 @@ class Picker(object):
             print "Err", e
         return None, None
 
-
-Picker = Picker() # Initialize
-
 if __name__ == '__main__':
     # Testing
     def clicked(*args):
@@ -100,7 +97,8 @@ if __name__ == '__main__':
         print "Dragging!", args
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    Picker.whitelist.add(xform) # Add object to our whitelist
-    Picker.callback_click.add(clicked) # Add our callback
-    Picker.callback_drag.add(dragged) # Add our callback
-    Picker.set()
+    p = Picker()
+    p.whitelist.add(xform) # Add object to our whitelist
+    p.callback_click.add(clicked) # Add our callback
+    p.callback_drag.add(dragged) # Add our callback
+    p.set()

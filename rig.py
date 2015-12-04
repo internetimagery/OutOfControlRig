@@ -28,7 +28,11 @@ class Control(object):
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
 
         track.Selection(kws=True).callbacks.add(s.selection_update) # Register our selection callback
-        s.tool = tool.Picker
+        picker = tool.Picker()
+        picker.whitelist = geos
+        picker.callback_click.add(s.highlight_mesh)
+
+        s.active = True # Rig state
 
     def selection_update(s, sel):
         """ Selection changes """
@@ -37,8 +41,8 @@ class Control(object):
             sel = sel[0]
             if sel in s.geos: # Have we selected one of our meshes?
                 s.activate_rig()
-            else:
-                s.deactivate_rig()
+                return
+        s.deactivate_rig()
 
     def activate_rig(s):
         """ turn on our rig """
@@ -49,6 +53,11 @@ class Control(object):
         """ turn off the rig """
         colour.paint(s.cache_all)
         colour.erase(s.geos) # Clear our colour information
+
+    def highlight_mesh(s, mesh, ID):
+        """ highlight the mesh """
+        print mesh, ID
+        pass
 
 if __name__ == '__main__':
     # Testing
