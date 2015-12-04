@@ -14,10 +14,15 @@
 import pymel.core as pmc
 import collections
 
+import maya.cmds as cmds
+
 POLY_VERTS = 31 # Filter Expand index
 
 def skin_influeces(skins):
-    """ Given a list of skins, return a dict with cached verts """
+    """
+    Given a list of skins, return a dict with cached verts
+    cache = {joint : "mesh.vtx[ID]"}
+    """
     cache = collections.defaultdict(list)
     for skin in skins:
         joints = skin.getInfluence() # Get joints affecting skin
@@ -34,33 +39,27 @@ def skin_influeces(skins):
         cache[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS) # Reduce calls
     return cache
 
+def skin_weights(skins):
+    """
+    Given a list of skins, return a cache with mesh, face ID and highest ranking joint
+    cache = {mesh: {ID: joint}}
+    """
+    cache = collections.defaultdict(dict)
+    vert = "%s.vtx[%s]"
+    for skin in skins:
+        joints = skin.getInfluence() # Get joints affecting skin
+        geos = skin.getGeometry() # Mesh affecting skin
+        for geo in geos:
+            for ID in range(geo.numFaces()): # Iterate through all faces
+                verts = tuple(vert % (geo, a) for a in geo.getPolygonVertices(ID))
+                weights = tuple(pmc.animation.skinPercent(str(skin), a, q=True, v=True) for a in verts)
+                totals = {} # Record influences from joints
+                for i, w in enumerate(zip(*weights)): # Loop through joints and weights
+                    totals[sum(w) / len(verts)] = joints[i] # Identical weights pick joint at random
+                highest_weight = totals[max(totals)]
+                cache[geo][ID] = highest_weight # Record in our cache
+    return cache
 
-
-
-# def skin_weights(skin):
-#     """ Given a skin, return a dict with joints and cached weights """
-#     cache = collections.defaultdict(collections.defaultdict(list))
-#     geo = skin.getGeometry()
-#     joints = skin.getInfluence()
-#
-
-# TODO: create a cache for all skin weights. {joint, mesh, [weight1, weight2]}
-    # def pickSkeleton(s, mesh, faceID):
-    #     """
-    #     Pick a bone, given a skinned mesh and a face ID
-    #     """
-    #     # Get verts from Face
-    #     meshes = s.meshes
-    #     verts = [int(v) for v in findall(r"\s(\d+)\s", cmds.polyInfo("%s.f[%s]" % (mesh, faceID), fv=True)[0])]
-    #
-    #     weights = {}
-    #     for joint in meshes[mesh]:
-    #         weights[joint] = weights.get(joint, 0) # Initialize
-    #         weights[joint] = sum([meshes[mesh][joint][v] for v in verts if v in meshes[mesh][joint]])
-    #
-    #     if weights:
-    #         maxWeight = max(weights, key=lambda x: weights.get(x))
-    #         return maxWeight
 
 if __name__ == '__main__':
     # Testing

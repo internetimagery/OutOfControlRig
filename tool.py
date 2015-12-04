@@ -65,6 +65,7 @@ class Picker(object):
         for call in s.callback_drag:
             call(mesh, ID)
 
+
     def _pick_point(s):
         """ Pick a point on mesh from where user clicked """
         try:
@@ -87,6 +88,7 @@ class Picker(object):
         except RuntimeError as e:
             print "Err", e
         return None, None
+
 
 Picker = Picker() # Initialize
 
