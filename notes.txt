@@ -1,0 +1,26 @@
+# Notes:
+
+# Check provided meshes for skin clusters
+# Get skin weights from clusters and pair them to joints
+# Cache vertexes for colouring later.
+
+# Track selection change to switch to our context tool
+# return colour back to normal if context clicks on something other than model
+# get point on surface clicked
+# associate it with a joints
+# select joint and colour mesh
+
+# Generate IK chains dynamically by following the limb back to its base.
+# Look for more than one child, this is the root.
+# Check vectors for each bone and check for parallelism. If parallel
+# treat the bones as twist joints with regards to IK
+
+# Have a dockable GUI that changes colour if tool is active or not.
+# Track meshes that are active.
+# Button to do rarer things such as Pinning IK chains
+
+# Implement "pinning" of IK limbs. This would retain the IK handle
+# and keep it stuck in place. A new object "pin" would be created
+
+# if selection lands on an end joint that doesn't affect anything really,
+# Jump back a joint in the chain. UNLESS the chain is a single joint chain
