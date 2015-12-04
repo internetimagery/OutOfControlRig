@@ -13,19 +13,40 @@
 
 import pymel.core as pmc
 import pymel.core.windows as pmw
+import contextlib
 import functools
 import sys
 
 def unique_class(cls):
     """ Keep only one instance of class active """
     instances = {}
-
     @functools.wraps(cls)
-    def unique_cls(*args, **kwargs):
+    def inner(*args, **kwargs):
         if (cls in instances and sys.getrefcount(instances[cls]) < 3) or cls not in instances:
             instances[cls] = instance = cls(*args, **kwargs)
         return instance
-    return unique_cls
+    return inner
+
+def safe(func):
+    """ Keep the integrity of the maya scene safe, and alert errors """
+    def inner(*args, **kwargs):
+        err = None
+        pmc.undoInfo(openChunk=True)
+        try:
+            res = func(*args, **kwargs)
+        except Exception as err:
+            raise
+        finally:
+            pmc.undoInfo(closeChunk=True) # Close undo!
+            if err: # Did we error out?
+                pmc.undo()
+                e_type, e_name, e_trace = sys.exc_info() # Last error
+                pmc.confirmDialog(
+                    t="Uh oh... %s" % e_type.__name__,
+                    m=str(e_name)
+                    )
+        return res
+    return inner
 
 @unique_class
 class Main(object):
@@ -36,6 +57,10 @@ class Main(object):
         title = "Out of Control Rig!"
         win = pmw.window(t=title)
         pmw.columnLayout(adj=True)
+        pmw.text(l="%s is working on these meshes:" % title)
+        pmw.separator()
+        for m in sel:
+            pmw.text(l=m)
         pmw.button(l='Click Me', h=25)
         allowed_areas = ['right', 'left']
         s._dock = pmw.dockControl(

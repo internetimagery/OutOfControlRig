@@ -1,4 +1,4 @@
-# Ask questions about objects
+# Set Vertex colours on object
 # Created By Jason Dixon. http://internetimagery.com
 #
 # This program is free software: you can redistribute it and/or modify
@@ -12,24 +12,27 @@
 # GNU General Public License for more details.
 
 import pymel.core as pmc
-import re
 
-def skin(mesh):
-    """ Query if mesh has a skin attached. If so return skin. """
-    skin = pmc.mel.findRelatedSkinCluster(mesh) or None
-    return pmc.PyNode(skin) if skin else None
+BASE_COLOUR = (0.5,0.5,0.5) # Base colour
 
-def vert_ids(mesh, ID):
-    """ Given mesh and face ID, return vert IDs associated with that """
-    face = "%s.f[%s]" % (mesh, ID)
-    reg = re.compile(r"\s(\d+)\s")
-    return tuple(int(v) for v in reg.findall(pmc.polyInfo(face, fv=True)[0]))
+def paint(selection, colour=None):
+    """ Set the colour of selection to be whatever """
+    if colour:
+        pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
+    else:
+        pmc.polyColorPerVertex(selection, rgb=BASE_COLOUR, cdo=True)
+
+def erase(meshes):
+    """ Remove colours on meshes """
+    for m in meshes: pmc.setAttr("%s.displayColors" % m, 0)
 
 if __name__ == '__main__':
     # Testing
+    import time
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
-    assert skin(xform) == sk # Check for skin cluster
-    assert vert_ids(xform, 1) == (1,2,22,21)
+    paint("%s.vtx[0:]" % xform, (0.2,0.6,0.7))
+    for i in range(10):
+        pmc.refresh()
+        time.sleep(0.1)
+    erase([xform])

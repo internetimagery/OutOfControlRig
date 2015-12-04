@@ -11,7 +11,7 @@
 # return colour back to normal if context clicks on something other than model
 # [DONE] get point on surface clicked
 # [DONE] associate it with a joints
-# select joint and colour mesh
+# [DONE] select joint and colour mesh
 
 # Generate IK chains dynamically by following the limb back to its base.
 # Look for more than one child, this is the root.
