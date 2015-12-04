@@ -10,7 +10,7 @@
 # [DONE] switch to our custom picker context tool
 # return colour back to normal if context clicks on something other than model
 # [DONE] get point on surface clicked
-# associate it with a joints
+# [DONE] associate it with a joints
 # select joint and colour mesh
 
 # Generate IK chains dynamically by following the limb back to its base.
