@@ -16,7 +16,7 @@ import collections
 
 POLY_VERTS = 31 # Filter Expand index
 
-def skin(skins):
+def skin_influeces(skins):
     """ Given a list of skins, return a dict with cached verts """
     cache = collections.defaultdict(list)
     for skin in skins:
@@ -35,10 +35,28 @@ def skin(skins):
         cache[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS) # Reduce calls
     return cache
 
+# TODO: create a cache for all skin weights. {joint, mesh, [weight1, weight2]}
+    # def pickSkeleton(s, mesh, faceID):
+    #     """
+    #     Pick a bone, given a skinned mesh and a face ID
+    #     """
+    #     # Get verts from Face
+    #     meshes = s.meshes
+    #     verts = [int(v) for v in findall(r"\s(\d+)\s", cmds.polyInfo("%s.f[%s]" % (mesh, faceID), fv=True)[0])]
+    #
+    #     weights = {}
+    #     for joint in meshes[mesh]:
+    #         weights[joint] = weights.get(joint, 0) # Initialize
+    #         weights[joint] = sum([meshes[mesh][joint][v] for v in verts if v in meshes[mesh][joint]])
+    #
+    #     if weights:
+    #         maxWeight = max(weights, key=lambda x: weights.get(x))
+    #         return maxWeight
+
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
     sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
-    print skin([sk])
+    print skin_influeces([sk])

@@ -15,7 +15,6 @@ import pymel.core as pmc
 import maya.api.OpenMaya as om # Use new API
 import maya.api.OpenMayaUI as omui
 
-
 class Picker(object):
     """ Picker tool. Return point on mesh clicked """
     def __init__(s):

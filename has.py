@@ -12,15 +12,23 @@
 # GNU General Public License for more details.
 
 import pymel.core as pmc
+import re
 
 def skin(mesh):
     """ Query if mesh has a skin attached. If so return skin. """
     return pmc.mel.findRelatedSkinCluster(mesh) or None
+
+def vert_ids(mesh, ID):
+    """ Given mesh and face ID, return vert IDs associated with that """
+    face = "%s.f[%s]" % (mesh, ID)
+    reg = re.compile(r"\s(\d+)\s")
+    return tuple(int(v) for v in reg.findall(pmc.polyInfo(face, fv=True)[0]))
 
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
-    print skin(xform) # Check for skin cluster
+    sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
+    assert skin(xform) == sk # Check for skin cluster
+    assert vert_ids(xform, 1) == (1,2,22,21)
