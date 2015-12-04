@@ -12,6 +12,7 @@
 # GNU General Public License for more details.
 
 import pymel.core as pmc
+import pymel.core.windows as pmw
 import functools
 import sys
 
@@ -30,13 +31,14 @@ def unique_class(cls):
 class Main(object):
     """ Main Window. Rig Tool runs while window is open """
     def __init__(s):
-        s.GUI = {}
+        sel = pmc.ls(sl=True, type="transform")
+        if not sel: raise RuntimeError, "You must select your rigs mesh."
         title = "Out of Control Rig!"
-        win = pmc.windows.window(t=title)
-        pmc.windows.columnLayout(adjustableColumn=True)
-        pmc.windows.button(l='Click Me', h=25)
+        win = pmw.window(t=title)
+        pmw.columnLayout(adj=True)
+        pmw.button(l='Click Me', h=25)
         allowed_areas = ['right', 'left']
-        s._dock = pmc.windows.dockControl(
+        s._dock = pmw.dockControl(
             l=title,
             a='left',
             aa=allowed_areas,
@@ -44,12 +46,12 @@ class Main(object):
             content=win,
             fcc=s._dock_moved,
             vcc=s._dock_closed)
-        s._dock_query = functools.partial(pmc.windows.dockControl, s._dock, q=True)
+        s._dock_query = functools.partial(pmw.dockControl, s._dock, q=True)
         location = s._dock_get_loc()
         if location in allowed_areas:
-            pmc.windows.dockControl(s._dock, e=True, a=location)
+            pmw.dockControl(s._dock, e=True, a=location)
         else:
-            pmc.windows.dockControl(s._dock, e=True, fl=True)
+            pmw.dockControl(s._dock, e=True, fl=True)
 
     def _dock_moved(s):  # Update dock location information
         if s._dock_query(fl=True):
@@ -65,7 +67,7 @@ class Main(object):
         if not visible and loop:
             pmc.scriptJob(ie=s._dock_closed, p=s._dock, ro=True)
         elif not visible:
-            pmc.windows.deleteUI(s._dock, control=True)
+            pmw.deleteUI(s._dock, control=True)
             print "Window closed."
 
     def _dock_get_loc(s):
