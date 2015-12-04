@@ -60,7 +60,6 @@ def skin_weights(skins):
                 cache[geo][ID] = highest_weight # Record in our cache
     return cache
 
-
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)

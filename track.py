@@ -28,19 +28,14 @@ class Selection(object):
         except:
             print traceback.format_exc()
             raise
-    def register(s, func):
-        """ Register callbacks for event """
-        s.callbacks.add(func)
-    def remove(s, func):
-        """ Remove callback from event """
-        s.callbacks.discard(func)
     def kill(s):
         """ Stop watching the event """
         pmc.scriptJob(kill=s.job_id)
+    def __del__(s): s.kill()
 
 if __name__ == '__main__':
     #Test!
     def changed(sel):
         print "Selection changed to:", sel
     tracker = Selection(ro=True)
-    tracker.register(changed)
+    tracker.callbacks.add(changed)
