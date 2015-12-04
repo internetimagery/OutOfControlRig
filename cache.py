@@ -20,7 +20,6 @@ def skin_influeces(skins):
     """ Given a list of skins, return a dict with cached verts """
     cache = collections.defaultdict(list)
     for skin in skins:
-        skin = pmc.PyNode(skin) # Nodify the skin string
         joints = skin.getInfluence() # Get joints affecting skin
         for joint in joints:
             pmc.select(clear=True)
@@ -34,6 +33,16 @@ def skin_influeces(skins):
         pmc.select(cache[joint], r=True)
         cache[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS) # Reduce calls
     return cache
+
+
+
+
+# def skin_weights(skin):
+#     """ Given a skin, return a dict with joints and cached weights """
+#     cache = collections.defaultdict(collections.defaultdict(list))
+#     geo = skin.getGeometry()
+#     joints = skin.getInfluence()
+#
 
 # TODO: create a cache for all skin weights. {joint, mesh, [weight1, weight2]}
     # def pickSkeleton(s, mesh, faceID):
@@ -60,3 +69,4 @@ if __name__ == '__main__':
     jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
     sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
     print skin_influeces([sk])
+    print skin_weights([sk])
