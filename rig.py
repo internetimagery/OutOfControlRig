@@ -43,12 +43,10 @@ class Control(object):
             if sel in s.geos: # Have we selected one of our meshes?
                 s.picker.set()
                 return
-        # elif s.picker.active: s.picker.unset() # Clicked on nothing, clear picker
 
     def activate_rig(s):
         """ turn on our rig """
         colour.paint(s.cache_all) # Paint everything grey
-        print "turning on rig"
 
     def deactivate_rig(s):
         """ turn off the rig """

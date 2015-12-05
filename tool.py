@@ -21,21 +21,30 @@ class Picker(object):
     def __init__(s, **kwargs):
         s.name = "OutOfControlPicker"
         s.whitelist = set() # List of meshes to check against
-        s.callback_start = set()
-        s.callback_click = set()
+        s.callback_start = set() # Callbacks
+        s.callback_click = set() # Callbacks
         s.callback_drag = set() # Callbacks
-        s.callback_stop = set()
+        s.callback_stop = set() # Callbacks
         s._last_tool = pmc.currentCtx() # Last tool used
-        s._create()
+
+        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
+        pmc.context.draggerContext(
+            s.name,
+            name=s.name,
+            releaseCommand=s.call_click,
+            dragCommand=s.call_drag,
+            cursor="hand",
+            image1="hands.png"
+        )
+
         track.Tool(**kwargs).callback.add(s._tool_changed) # Watch for tool changes
 
     def set(s):
         """ Activate Tool """
-        s._last_tool = pmc.currentCtx()
-        # FOR DEBUG, REMOVE AND RECREATE TOOL EACH TIME IT IS CREATED
-        s._create()
-        # END DEBUG SECTION!! TODO: PUT THIS INTO ITS OWN CREATION FUNCTION AND CALL ONCE
-        pmc.setToolTo(s.name) # Set our tool to the active tool
+        last_tool, name = pmc.currentCtx(), s.name
+        if last_tool != name:
+            s._last_tool = last_tool
+            pmc.setToolTo(name) # Set our tool to the active tool
 
     def unset(s):
         """ Set us back to the last tool """
@@ -47,18 +56,6 @@ class Picker(object):
             for caller in s.callback_start: caller()
         else:
             for caller in s.callback_stop: caller()
-
-    def _create(s):
-        """ Create our tool """
-        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
-        pmc.context.draggerContext(
-            s.name,
-            name=s.name,
-            releaseCommand=s.call_click,
-            dragCommand=s.call_drag,
-            cursor="hand",
-            image1="hands.png"
-        )
 
     @property
     def active(s):
