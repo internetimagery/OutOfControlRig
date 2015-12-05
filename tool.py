@@ -20,14 +20,14 @@ class Picker(object):
     """ Picker tool. Return point on mesh clicked """
     def __init__(s, **kwargs):
         s.name = "OutOfControlPicker"
-        s.whitelist = set() # List of meshes to check against
-        s.callback_start = set() # Callbacks
-        s.callback_click = set() # Callbacks
-        s.callback_drag = set() # Callbacks
-        s.callback_stop = set() # Callbacks
+        s.whitelist = [] # List of meshes to check against
+        s.callback_start = None # Callback
+        s.callback_click = None # Callback
+        s.callback_drag = None # Callback
+        s.callback_stop = None # Callback
         s._last_tool = pmc.currentCtx() # Last tool used
 
-        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
+        s.kill() # Clear any previous tool
         pmc.context.draggerContext(
             s.name,
             name=s.name,
@@ -37,7 +37,8 @@ class Picker(object):
             image1="hands.png"
         )
 
-        track.Tool(**kwargs).callback.add(s._tool_changed) # Watch for tool changes
+        s.tracker = tracker = track.Tool(**kwargs)
+        tracker.callback = s._tool_changed # Watch for tool changes
 
     def set(s):
         """ Activate Tool """
@@ -52,10 +53,11 @@ class Picker(object):
 
     def _tool_changed(s, tool):
         """ Watch for tool changes """
-        if tool == s.name: # Changed to our tool
-            for caller in s.callback_start: caller()
-        else:
-            for caller in s.callback_stop: caller()
+        call1, call2 = s.callback_start, s.callback_stop
+        if tool == s.name and call1:
+            call1() # Changed to our tool
+        elif call2:
+            call2() # Changed away from our tool
 
     @property
     def active(s):
@@ -64,15 +66,19 @@ class Picker(object):
 
     def call_click(s):
         """ Call back click events """
-        mesh, ID = s._pick_point() # Get point in space
-        for call in s.callback_click:
-            call(mesh, ID)
+        call = s.callback_click
+        if call:
+            mesh, ID = s._pick_point() # Get point in space
+            if mesh:
+                call(mesh, ID)
 
     def call_drag(s):
         """ Call back drag events """
-        mesh, ID = s._pick_point() # Get point in space
-        for call in s.callback_drag:
-            call(mesh, ID)
+        call = s.callback_drag
+        if call:
+            mesh, ID = s._pick_point() # Get point in space
+            if mesh:
+                call(mesh, ID)
 
     def _pick_point(s):
         """ Pick a point on mesh from where user clicked """
@@ -89,13 +95,16 @@ class Picker(object):
             for w in s.whitelist:
                 sel = om.MSelectionList() # New selection list
                 sel.add(str(w)) # Add object
-                obj = om.MFnMesh(sel.getDagPath(0)) # Get our DAG Path
-                intersection = obj.closestIntersection(*ray_args)
+                intersection = om.MFnMesh(sel.getDagPath(0)).closestIntersection(*ray_args)
                 if intersection and intersection[3] != -1: # We have a hit!
                     return w, intersection[2] # Hit mesh, and face ID
         except RuntimeError as e:
             print "Err", e
         return None, None
+
+    def kill(s):
+        s.tracker.kill() # Stop tracking
+        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
 
 if __name__ == '__main__':
     # Testing
@@ -110,9 +119,9 @@ if __name__ == '__main__':
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     p = Picker(kws=True)
-    p.whitelist.add(xform) # Add object to our whitelist
-    p.callback_start.add(start)
-    p.callback_click.add(clicked) # Add our callback
-    p.callback_drag.add(dragged) # Add our callback
-    p.callback_stop.add(stop)
+    p.whitelist = [xform] # Add object to our whitelist
+    p.callback_start = start
+    p.callback_click = clicked # Add our callback
+    p.callback_drag = dragged # Add our callback
+    p.callback_stop = stop
     p.set()

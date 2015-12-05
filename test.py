@@ -5,4 +5,4 @@ import maya.api.OpenMayaUI as omui
 import maya.cmds as cmds
 import pymel.core as pmc
 
-print pmc.system.sceneName()
+pmc.scriptJob(kill=54234324234)
