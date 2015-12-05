@@ -17,25 +17,30 @@ import pymel.core as pmc
 class Selection(object):
     """ Track changes to the current selection """
     def __init__(s, **kwargs):
-        s.callbacks = set()
-        s.job_id = pmc.scriptJob(e=["SelectionChanged", s._changed], **kwargs)
+        s.callback = set()
+        s._last_selection = None
+        s._job_id = pmc.scriptJob(e=["SelectionChanged", s._changed], **kwargs)
     def _changed(s):
         """ Selection changed. Update everyone. """
         sel = pmc.ls(sl=True)
+        if sel == s._last_selection: return
+        s._last_selection = sel
         try:
-            for caller in s.callbacks:
+            for caller in s.callback:
                 caller(sel)
         except:
             print traceback.format_exc()
             raise
     def kill(s):
         """ Stop watching the event """
-        pmc.scriptJob(kill=s.job_id)
+        pmc.scriptJob(kill=s._job_id)
     def __del__(s): s.kill()
 
 if __name__ == '__main__':
     #Test!
     def changed(sel):
         print "Selection changed to:", sel
-    tracker = Selection(ro=True)
-    tracker.callbacks.add(changed)
+    pmc.system.newFile(force=True)
+    xform, shape = pmc.polyCylinder() # Create a cylinder and joints
+    tracker = Selection(kws=True)
+    tracker.callback.add(changed)

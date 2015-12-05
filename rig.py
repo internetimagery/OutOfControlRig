@@ -27,12 +27,10 @@ class Control(object):
         s.cache_weights = cache.skin_weights(b for a, b in geos.iteritems())
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
 
-        track.Selection(kws=True).callbacks.add(s.selection_update) # Register our selection callback
-        picker = tool.Picker()
+        track.Selection(kws=True).callback.add(s.selection_update) # Register our selection callback
+        s.picker = tool.Picker()
         picker.whitelist = geos
         picker.callback_click.add(s.highlight_mesh)
-
-        s.active = True # Rig state
 
     def selection_update(s, sel):
         """ Selection changes """
@@ -47,6 +45,7 @@ class Control(object):
     def activate_rig(s):
         """ turn on our rig """
         colour.paint(s.cache_all) # Paint everything grey
+        s.picker.set()
         print "turning on rig"
 
     def deactivate_rig(s):
