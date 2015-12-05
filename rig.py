@@ -18,31 +18,35 @@ import OutOfControlRig.cache as cache
 import OutOfControlRig.track as track
 import OutOfControlRig.colour as colour
 
+# Colours
+GREEN = (0.3, 0.8, 0.1)
+YELLOW = (9.0, 0.7, 0.3)
+
 class Control(object):
     """ Control the rig ... controllerlessly? """
     def __init__(s, geos):
         # Cache our mesh information
+        s.cache(geos)
+
+        # Set up our picker tool
+        s.picker = picker = tool.Picker(kws=True) # Picker tool
+        picker.whitelist = geos
+        picker.callback_start = s.activate_rig
+        picker.callback_click = s.picked
+        picker.callback_drag = s.dragging
+        picker.callback_stop = s.deactivate_rig
+        picker.set()
+
+        # Other
+        s.expected_tool_change = False # If we are changing the tool ourselves
+        s.last_joint = None # Last joint visited
+
+    def cache(s, geos):
+        """ Cache some meshes for use """
         s.geos = geos = dict((a, has.skin(a)) for a in geos) # Get skins
         s.cache_influence = cache.skin_influeces(b for a, b in geos.iteritems())
         s.cache_weights = cache.skin_weights(b for a, b in geos.iteritems())
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
-
-        s.picker = picker = tool.Picker(kws=True) # Picker tool
-        picker.whitelist = geos
-        picker.callback_start.add(s.activate_rig)
-        picker.callback_click.add(s.picked)
-        picker.callback_drag.add(s.dragging)
-        picker.callback_stop.add(s.deactivate_rig)
-        track.Selection(kws=True).callback.add(s.selection_update) # Register our selection callback
-
-    def selection_update(s, sel):
-        """ Selection changes """
-        num = len(sel) # Number of items selected
-        if num == 1:
-            sel = sel[0]
-            if sel in s.geos: # Have we selected one of our meshes?
-                s.picker.set()
-                return
 
     def activate_rig(s):
         """ turn on our rig """
@@ -50,25 +54,39 @@ class Control(object):
 
     def deactivate_rig(s):
         """ turn off the rig """
-        colour.paint(s.cache_all)
+        colour.paint(s.cache_all) # Paint it all grey and...
         colour.erase(s.geos) # Clear our colour information
 
     def picked(s, mesh, ID):
         """ making a selection """
-        if mesh: # Did we pick something?
-            print "PICKED", mesh, ID
-        else:
-            s.picker.unset()
+        try:
+            joint = s.cache_weights[mesh][ID]
+            s.last_joint = None # Clear last joint again
+            canvas = s.cache_influence[joint]
+            colour.paint(s.cache_all) # Clear canvas
+            colour.paint(canvas, YELLOW)
+        except KeyError:
+            print "Joint missing from cache."
 
     def dragging(s, mesh, ID):
         """ dragging selection """
-        if mesh:
-            print "Dragging", mesh, ID
+        try:
+            joint = s.cache_weights[mesh][ID]
+            if joint != s.last_joint:
+                s.last_joint = joint
+                canvas = s.cache_influence[joint]
+                colour.paint(s.cache_all) # Clear canvas
+                colour.paint(canvas, GREEN)
+                pmc.refresh() # Update display
+        except KeyError:
+            print "Joint missing from cache."
+
 
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
+    xform, shape = pmc.polyCylinder(sy=5) # Create a cylinder and joints
+    jnt1, jnt2, jnt3 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,0,0)), pmc.joint(p=(0,1,0))
+    sk = pmc.skinCluster(jnt1, xform, mi=1) # Bind them to the cylinder
     Control([xform])
+    pmc.select(clear=True)

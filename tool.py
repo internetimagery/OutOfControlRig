@@ -27,7 +27,7 @@ class Picker(object):
         s.callback_stop = None # Callback
         s._last_tool = pmc.currentCtx() # Last tool used
 
-        s.kill() # Clear any previous tool
+        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
         pmc.context.draggerContext(
             s.name,
             name=s.name,
@@ -97,7 +97,7 @@ class Picker(object):
                 sel.add(str(w)) # Add object
                 intersection = om.MFnMesh(sel.getDagPath(0)).closestIntersection(*ray_args)
                 if intersection and intersection[3] != -1: # We have a hit!
-                    return w, intersection[2] # Hit mesh, and face ID
+                    return w.getShape(), intersection[2] # Hit mesh, and face ID
         except RuntimeError as e:
             print "Err", e
         return None, None

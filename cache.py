@@ -29,7 +29,7 @@ def skin_influeces(skins):
         for joint in joints:
             pmc.select(clear=True)
             skin.selectInfluenceVerts(joint) # Select verts associated with joint
-            for vert in pmc.filterExpand(sm=POLY_VERTS): # Pull out each vertex
+            for vert in pmc.filterExpand(sm=POLY_VERTS) or []: # Pull out each vertex
                 influences = pmc.animation.skinPercent(skin, vert, q=True, v=True)
                 for i, influence in enumerate(influences):
                     if 0.2 < influence: # Trim tiny influences.
@@ -65,6 +65,7 @@ if __name__ == '__main__':
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform) # Bind them to the cylinder
+    sk = pmc.skinCluster(jnt1, xform, mi=1) # Bind them to the cylinder
+
     print skin_influeces([sk])
     print skin_weights([sk])
