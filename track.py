@@ -19,7 +19,7 @@ class Selection(object):
     def __init__(s, **kwargs):
         s.callback = set()
         s._last_selection = None
-        s._job_id = pmc.scriptJob(e=["SelectionChanged", s._changed], **kwargs)
+        s._job_id = pmc.scriptJob(e=("SelectionChanged", s._changed), **kwargs)
     def _changed(s):
         """ Selection changed. Update everyone. """
         sel = pmc.ls(sl=True)
@@ -36,11 +36,33 @@ class Selection(object):
         pmc.scriptJob(kill=s._job_id)
     def __del__(s): s.kill()
 
+class Tool(object):
+    """ Track changes to the current tool """
+    def __init__(s, **kwargs):
+        s.callback = set()
+        s._last_tool = None
+        s._job_id = pmc.scriptJob(e=("PostToolChanged", s._changed), **kwargs)
+    def _changed(s):
+        """ Tool changed. Update everyone """
+        tool = pmc.currentCtx()
+        if tool == s._last_tool: return
+        s._last_tool = tool
+        try:
+            for caller in s.callback:
+                caller(tool)
+        except:
+            print traceback.format_exc()
+            raise
+
 if __name__ == '__main__':
     #Test!
-    def changed(sel):
+    def changed_selection(sel):
         print "Selection changed to:", sel
+    def changed_tool(tool):
+        print "Tool changed to:", tool
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    tracker = Selection(kws=True)
-    tracker.callback.add(changed)
+    s = Selection(kws=True)
+    s.callback.add(changed_selection)
+    t = Tool(kws=True)
+    t.callback.add(changed_tool)

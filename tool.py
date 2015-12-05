@@ -11,6 +11,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import track
 import pymel.core as pmc
 import maya.api.OpenMaya as om # Use new API
 import maya.api.OpenMayaUI as omui
@@ -20,10 +21,13 @@ class Picker(object):
     def __init__(s):
         s.name = "OutOfControlPicker"
         s.whitelist = set() # List of meshes to check against
+        s.callback_start = set()
         s.callback_click = set()
         s.callback_drag = set() # Callbacks
+        s.callback_stop = set()
         s._last_tool = None # Last tool used
         s._create()
+        track.Tool(kws=True).callback.add(s._tool_changed) # Watch for tool changes
 
     def set(s):
         """ Activate Tool """
@@ -36,6 +40,13 @@ class Picker(object):
     def unset(s):
         """ Set us back to the last tool """
         pmc.setToolTo(s._last_tool)
+
+    def _tool_changed(s, tool):
+        """ Watch for tool changes """
+        if tool == s.name: # Changed to our tool
+            for caller in s.callback_start: caller()
+        else:
+            for caller in s.callback_stop: caller()
 
     def _create(s):
         """ Create our tool """
@@ -91,6 +102,10 @@ class Picker(object):
 
 if __name__ == '__main__':
     # Testing
+    def start():
+        print "Tool started."
+    def stop():
+        print "Tool stopped."
     def clicked(*args):
         print "Clicked!", args
     def dragged(*args):
@@ -99,6 +114,8 @@ if __name__ == '__main__':
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
     p = Picker()
     p.whitelist.add(xform) # Add object to our whitelist
+    p.callback_start.add(start)
     p.callback_click.add(clicked) # Add our callback
     p.callback_drag.add(dragged) # Add our callback
+    p.callback_stop.add(stop)
     p.set()
