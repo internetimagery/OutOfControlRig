@@ -29,7 +29,7 @@ class Control(object):
         s.cache(geos)
 
         # Set up our picker tool
-        s.picker = picker = tool.Picker(kws=True) # Picker tool
+        s.picker = picker = tool.Picker() # Picker tool
         picker.whitelist = geos
         picker.callback_start = s.activate_rig
         picker.callback_click = s.picked
@@ -37,9 +37,14 @@ class Control(object):
         picker.callback_stop = s.deactivate_rig
         picker.set()
 
-        # Other
-        s.expected_tool_change = False # If we are changing the tool ourselves
-        s.last_joint = None # Last joint visited
+        # Set up our selection tracker
+        track.Selection(kws=True).callback = s.selection_changed
+
+        s.drag_joint = None # Last joint visited
+
+        # States
+        s.making_selection = False # If we are changing the tool ourselves
+        s.controlling_rig = False # Currently controlling the rig
 
     def cache(s, geos):
         """ Cache some meshes for use """
@@ -50,17 +55,19 @@ class Control(object):
 
     def activate_rig(s):
         """ turn on our rig """
+        if s.making_selection: return
         colour.paint(s.cache_all) # Paint everything grey
 
     def deactivate_rig(s):
         """ turn off the rig """
+        if s.making_selection: return
         colour.paint(s.cache_all) # Paint it all grey and...
         colour.erase(s.geos) # Clear our colour information
 
     def picked(s, mesh, ID):
-        """ making a selection """
+        """ clicked on a mesh """
         try:
-            s.last_joint = None # Clear last joint
+            s.drag_joint = None # Clear last joint
             colour.paint(s.cache_all) # Clear canvas
             if mesh: # Did we select anything?
                 joint = s.cache_weights[mesh][ID] # Selected joint
@@ -71,12 +78,12 @@ class Control(object):
             print "Joint missing from cache."
 
     def dragging(s, mesh, ID):
-        """ dragging selection """
+        """ dragging mesh """
         try:
             if mesh: # Are we still dragging on the mesh?
                 joint = s.cache_weights[mesh][ID]
-                if joint != s.last_joint:
-                    s.last_joint = joint
+                if joint != s.drag_joint:
+                    s.drag_joint = joint
                     canvas = s.cache_influence[joint]
                     colour.paint(s.cache_all) # Clear canvas
                     colour.paint(canvas, GREEN)
@@ -84,9 +91,22 @@ class Control(object):
         except KeyError:
             print "Joint missing from cache."
 
+    def selection_changed(s, sel):
+        """ Selection has been changed """
+        if s.controlling_rig: # We were controlling the rig
+            s.controlling_rig = False
+            s.deactivate_rig()
+
+        if s.making_selection: # We are in the process of making a selection
+            s.making_selection = False # Reset
+            s.controlling_rig = True # We are now controlling the rig
+
+
+
     def make_selection(s, joint):
-        """ Make selection """
+        """ select control object """
         pmc.select(joint, r=True) # TODO: make this more sophisticated
+        s.making_selection = True # We are ready for this change
         s.picker.unset() # Return to previous tool
 
 if __name__ == '__main__':

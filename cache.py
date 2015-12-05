@@ -18,6 +18,36 @@ import maya.cmds as cmds
 
 POLY_VERTS = 31 # Filter Expand index
 
+def skins(): # Hoover up all skins in the scene
+    """
+    Cache all joint and skin info in the scene
+    cache1 = {mesh: {faceID: joint}}
+    cache2 = {joint: vertices}
+    """
+    vert = "%s.vtx[%s]" # Vertex template
+    skins = pmc.ls(type="skinCluster")
+    cache1 = collections.defaultdict(dict) # preferred joint per face
+    cache2 = collections.defaultdict(list) # joints influence
+    for skin in skins:
+        joints = skin.getInfluence() # Get affecting joints
+        for joint in joints: # This runs much faster
+            influence_list, weights = skin.getPointsAffectedByInfluence(joint)
+            for influence in influence_list: # A list populated by one item? Ugh...
+                cache2[joint].append(influence) # Add influence to the joint
+                totals = collections.defaultdict(lambda: collections.defaultdict(list))
+                for vert, weight in zip(influence, weights): # Iterate our vertices
+                    for face in vert.connectedFaces():
+                        totals[face][joint].append(weight) # Store weight
+                for face, jnts in totals.iteritems(): # Loop our faces
+                    largest = dict((sum(b) / len(b), a) for a, b in jnts.iteritems())
+                    max_joint = largest[max(largest)]
+                    print face, max_joint
+
+    for joint, influence in cache2.iteritems(): # slim down to a single call
+        pmc.select(influence, r=True)
+        cache2[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS)
+
+
 def skin_influeces(skins):
     """
     Given a list of skins, return a dict with cached verts
@@ -64,8 +94,9 @@ if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    jnt1, jnt2 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform, mi=1) # Bind them to the cylinder
+    jnt1, jnt2, jnt3 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,0,0)), pmc.joint(p=(0,1,0))
+    sk = pmc.skinCluster(jnt1, xform, mi=2) # Bind them to the cylinder
 
-    print skin_influeces([sk])
-    print skin_weights([sk])
+    print skins()
+    # print skin_influeces([sk])
+    # print skin_weights([sk])
