@@ -18,16 +18,16 @@ import maya.api.OpenMayaUI as omui
 
 class Picker(object):
     """ Picker tool. Return point on mesh clicked """
-    def __init__(s):
+    def __init__(s, **kwargs):
         s.name = "OutOfControlPicker"
         s.whitelist = set() # List of meshes to check against
         s.callback_start = set()
         s.callback_click = set()
         s.callback_drag = set() # Callbacks
         s.callback_stop = set()
-        s._last_tool = None # Last tool used
+        s._last_tool = pmc.currentCtx() # Last tool used
         s._create()
-        track.Tool(kws=True).callback.add(s._tool_changed) # Watch for tool changes
+        track.Tool(**kwargs).callback.add(s._tool_changed) # Watch for tool changes
 
     def set(s):
         """ Activate Tool """
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         print "Dragging!", args
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    p = Picker()
+    p = Picker(kws=True)
     p.whitelist.add(xform) # Add object to our whitelist
     p.callback_start.add(start)
     p.callback_click.add(clicked) # Add our callback

@@ -27,12 +27,13 @@ class Control(object):
         s.cache_weights = cache.skin_weights(b for a, b in geos.iteritems())
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
 
-        track.Selection(kws=True).callback.add(s.selection_update) # Register our selection callback
-        s.picker = picker = tool.Picker()
+        s.picker = picker = tool.Picker(kws=True) # Picker tool
         picker.whitelist = geos
         picker.callback_start.add(s.activate_rig)
-        picker.callback_click.add(s.highlight_mesh)
+        picker.callback_click.add(s.picked)
+        picker.callback_drag.add(s.dragging)
         picker.callback_stop.add(s.deactivate_rig)
+        track.Selection(kws=True).callback.add(s.selection_update) # Register our selection callback
 
     def selection_update(s, sel):
         """ Selection changes """
@@ -42,7 +43,7 @@ class Control(object):
             if sel in s.geos: # Have we selected one of our meshes?
                 s.picker.set()
                 return
-        s.deactivate_rig()
+        # elif s.picker.active: s.picker.unset() # Clicked on nothing, clear picker
 
     def activate_rig(s):
         """ turn on our rig """
@@ -54,10 +55,17 @@ class Control(object):
         colour.paint(s.cache_all)
         colour.erase(s.geos) # Clear our colour information
 
-    def highlight_mesh(s, mesh, ID):
-        """ highlight the mesh """
-        print "PICKED", mesh, ID
-        pass
+    def picked(s, mesh, ID):
+        """ making a selection """
+        if mesh: # Did we pick something?
+            print "PICKED", mesh, ID
+        else:
+            s.picker.unset()
+
+    def dragging(s, mesh, ID):
+        """ dragging selection """
+        if mesh:
+            print "Dragging", mesh, ID
 
 if __name__ == '__main__':
     # Testing
