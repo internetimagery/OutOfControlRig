@@ -24,24 +24,40 @@ def skins(): # Hoover up all skins in the scene
     cache1 = {mesh: {faceID: joint}}
     cache2 = {joint: vertices}
     """
-    vert = "%s.vtx[%s]" # Vertex template
     skins = pmc.ls(type="skinCluster")
     cache1 = collections.defaultdict(dict) # preferred joint per face
     cache2 = collections.defaultdict(list) # joints influence
     for skin in skins:
         joints = skin.getInfluence() # Get affecting joints
+        geos = skin.getGeometry() # Get meshes
+        mesh_faces = {}
+        for geo in geos: # Associate verts with faces
+            face_offset, vert_index = geo.getVertices()
+            face_index = (d for c in ((a,)*b for a, b in enumerate(face_offset)) for d in c)
+            vert_face = collections.defaultdict(list) # Associate faces and vertices
+            for vert, face in zip(vert_index, face_index):
+                vert_face[vert].append(face)
+            mesh_faces[geo] = vert_face
+
+        print mesh_faces
+
+
         for joint in joints: # This runs much faster
             influence_list, weights = skin.getPointsAffectedByInfluence(joint)
             for influence in influence_list: # A list populated by one item? Ugh...
                 cache2[joint].append(influence) # Add influence to the joint
-                totals = collections.defaultdict(lambda: collections.defaultdict(list))
-                for vert, weight in zip(influence, weights): # Iterate our vertices
-                    for face in vert.connectedFaces():
-                        totals[face][joint].append(weight) # Store weight
-                for face, jnts in totals.iteritems(): # Loop our faces
-                    largest = dict((sum(b) / len(b), a) for a, b in jnts.iteritems())
-                    max_joint = largest[max(largest)]
-                    print face, max_joint
+                geo = influence.node() # Get object name
+
+
+                # totals = collections.defaultdict(lambda: collections.defaultdict(list))
+                # for vert, weight in zip(influence, weights): # Iterate our vertices
+                #     for face in vert.connectedFaces():
+                #         totals[face][joint].append(weight) # Store weight
+                # for face, jnts in totals.iteritems(): # Loop our faces
+                #     largest = dict((sum(b) / len(b), a) for a, b in jnts.iteritems())
+                #     max_joint = largest[max(largest)]
+                #     print face.transform()
+                #     # TODO!!! GET TRANSFORM!!
 
     for joint, influence in cache2.iteritems(): # slim down to a single call
         pmc.select(influence, r=True)
