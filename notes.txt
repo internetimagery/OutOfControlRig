@@ -8,10 +8,12 @@
 
 # [DONE] Track selection change
 # [DONE] switch to our custom picker context tool
-# return colour back to normal if context clicks on something other than model
+# [DONE] return colour back to normal if context clicks on something other than model
 # [DONE] get point on surface clicked
 # [DONE] associate it with a joints
 # [DONE] select joint and colour mesh
+
+# cache twist joints as limbs and treat them as a single joint
 
 # Generate IK chains dynamically by following the limb back to its base.
 # Look for more than one child, this is the root.

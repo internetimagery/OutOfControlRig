@@ -60,27 +60,34 @@ class Control(object):
     def picked(s, mesh, ID):
         """ making a selection """
         try:
-            joint = s.cache_weights[mesh][ID]
-            s.last_joint = None # Clear last joint again
-            canvas = s.cache_influence[joint]
+            s.last_joint = None # Clear last joint
             colour.paint(s.cache_all) # Clear canvas
-            colour.paint(canvas, YELLOW)
+            if mesh: # Did we select anything?
+                joint = s.cache_weights[mesh][ID] # Selected joint
+                canvas = s.cache_influence[joint]
+                colour.paint(canvas, YELLOW)
+                s.make_selection(joint) # Select the joint
         except KeyError:
             print "Joint missing from cache."
 
     def dragging(s, mesh, ID):
         """ dragging selection """
         try:
-            joint = s.cache_weights[mesh][ID]
-            if joint != s.last_joint:
-                s.last_joint = joint
-                canvas = s.cache_influence[joint]
-                colour.paint(s.cache_all) # Clear canvas
-                colour.paint(canvas, GREEN)
-                pmc.refresh() # Update display
+            if mesh: # Are we still dragging on the mesh?
+                joint = s.cache_weights[mesh][ID]
+                if joint != s.last_joint:
+                    s.last_joint = joint
+                    canvas = s.cache_influence[joint]
+                    colour.paint(s.cache_all) # Clear canvas
+                    colour.paint(canvas, GREEN)
+                    pmc.refresh() # Update display
         except KeyError:
             print "Joint missing from cache."
 
+    def make_selection(s, joint):
+        """ Make selection """
+        pmc.select(joint, r=True) # TODO: make this more sophisticated
+        s.picker.unset() # Return to previous tool
 
 if __name__ == '__main__':
     # Testing

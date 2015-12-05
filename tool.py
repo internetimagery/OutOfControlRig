@@ -18,7 +18,7 @@ import maya.api.OpenMayaUI as omui
 
 class Picker(object):
     """ Picker tool. Return point on mesh clicked """
-    def __init__(s, **kwargs):
+    def __init__(s):
         s.name = "OutOfControlPicker"
         s.whitelist = [] # List of meshes to check against
         s.callback_start = None # Callback
@@ -27,7 +27,7 @@ class Picker(object):
         s.callback_stop = None # Callback
         s._last_tool = pmc.currentCtx() # Last tool used
 
-        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
+        s.kill() # Clear out last tool if there
         pmc.context.draggerContext(
             s.name,
             name=s.name,
@@ -37,7 +37,7 @@ class Picker(object):
             image1="hands.png"
         )
 
-        s.tracker = tracker = track.Tool(**kwargs)
+        s.tracker = tracker = track.Tool(p=s.name)
         tracker.callback = s._tool_changed # Watch for tool changes
 
     def set(s):
@@ -57,6 +57,7 @@ class Picker(object):
         if tool == s.name and call1:
             call1() # Changed to our tool
         elif call2:
+            s._last_tool = pmc.currentCtx() # Track tool changes
             call2() # Changed away from our tool
 
     @property
@@ -67,18 +68,12 @@ class Picker(object):
     def call_click(s):
         """ Call back click events """
         call = s.callback_click
-        if call:
-            mesh, ID = s._pick_point() # Get point in space
-            if mesh:
-                call(mesh, ID)
+        if call: call(*s._pick_point())
 
     def call_drag(s):
         """ Call back drag events """
         call = s.callback_drag
-        if call:
-            mesh, ID = s._pick_point() # Get point in space
-            if mesh:
-                call(mesh, ID)
+        if call: call(*s._pick_point())
 
     def _pick_point(s):
         """ Pick a point on mesh from where user clicked """
@@ -103,8 +98,9 @@ class Picker(object):
         return None, None
 
     def kill(s):
-        s.tracker.kill() # Stop tracking
-        if pmc.context.draggerContext(s.name, ex=True): pmc.deleteUI(s.name)
+        """ Stop the tracker... in its tracks! get it! """
+        if pmc.context.draggerContext(s.name, ex=True):
+            pmc.deleteUI(s.name)
 
 if __name__ == '__main__':
     # Testing
@@ -118,7 +114,7 @@ if __name__ == '__main__':
         print "Dragging!", args
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    p = Picker(kws=True)
+    p = Picker()
     p.whitelist = [xform] # Add object to our whitelist
     p.callback_start = start
     p.callback_click = clicked # Add our callback
