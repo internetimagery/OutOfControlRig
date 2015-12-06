@@ -11,7 +11,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import track
+# import track
+import OutOfControlRig.track as track
 import pymel.core as pmc
 import maya.api.OpenMaya as om # Use new API
 import maya.api.OpenMayaUI as omui
@@ -113,9 +114,10 @@ if __name__ == '__main__':
     def dragged(*args):
         print "Dragging!", args
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder() # Create a cylinder and joints
+    xform1 = pmc.polyCylinder()[0] # Create a cylinder
+    xform2 = pmc.sphere(p=(2,0,0))[0]
     p = Picker()
-    p.whitelist = [xform] # Add object to our whitelist
+    p.whitelist = [xform1, xform2] # Add object to our whitelist
     p.callback_start = start
     p.callback_click = clicked # Add our callback
     p.callback_drag = dragged # Add our callback

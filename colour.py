@@ -15,6 +15,19 @@ import pymel.core as pmc
 
 BASE_COLOUR = (0.5,0.5,0.5) # Base colour
 
+class Canvas(object):
+    """ Paint objects """
+    base_colour = (0.5,0.5,0.5)
+    def __init__(s):
+        s.last_colour = None
+
+    def paint(s, selection, colour=None):
+        """ Paint some colour on objects """
+        colour = colour or s.base_colour
+        pmc.polyColorPerVertex(s.last_colour, rgb=s.base_colour, cdo=True)
+        pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
+        s.last_colour = selection
+
 def paint(selection, colour=None):
     """ Set the colour of selection to be whatever """
     if colour:

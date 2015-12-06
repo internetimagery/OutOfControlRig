@@ -12,11 +12,27 @@
 # GNU General Public License for more details.
 
 import pymel.core as pmc
-import collections
-
-import maya.cmds as cmds
+import maya.api.OpenMaya as om
+from collections import defaultdict as dd
 
 POLY_VERTS = 31 # Filter Expand index
+
+
+
+OpenMaya.MFnMesh.getFaceVertexIndex
+
+
+def _map_vertices_to_faces(mesh):
+    """ Map vert indices to faces """
+    try:
+        face_offset, vert_index = mesh.getVertices()
+        face_index = (d for c in ((a,)*b for a, b in enumerate(face_offset)) for d in c)
+        vert_to_face = dd(list) # Associate faces and vertices
+        for vert, face in zip(vert_index, face_index):
+            vert_to_face[vert].append(face)
+        return vert_to_face
+    except AttributeError as e:
+        print "Invalid mesh", mesh, e
 
 def skins(): # Hoover up all skins in the scene
     """
@@ -25,51 +41,45 @@ def skins(): # Hoover up all skins in the scene
     cache2 = {joint: vertices}
     """
     skins = pmc.ls(type="skinCluster")
-    cache1 = collections.defaultdict(dict) # preferred joint per face
-    cache2 = collections.defaultdict(list) # joints influence
+    cache1 = dd(dict) # preferred joint per face
+    cache2 = dd(list) # joints influence
+    vert_to_face = {} # vert to face mapping
     for skin in skins:
         joints = skin.getInfluence() # Get affecting joints
         geos = skin.getGeometry() # Get meshes
-        mesh_faces = {}
         for geo in geos: # Associate verts with faces
-            face_offset, vert_index = geo.getVertices()
-            face_index = (d for c in ((a,)*b for a, b in enumerate(face_offset)) for d in c)
-            vert_face = collections.defaultdict(list) # Associate faces and vertices
-            for vert, face in zip(vert_index, face_index):
-                vert_face[vert].append(face)
-            mesh_faces[geo] = vert_face
+            if geo not in vert_to_face:
+                vert_to_face[geo] = _map_vertices_to_faces(geo) or []
 
-        print mesh_faces
-
-
-        for joint in joints: # This runs much faster
+        totals = dd(lambda: dd(lambda: dd(list))) # work out highest influence per face
+        for joint in joints: # This seems to run much faster
             influence_list, weights = skin.getPointsAffectedByInfluence(joint)
             for influence in influence_list: # A list populated by one item? Ugh...
                 cache2[joint].append(influence) # Add influence to the joint
-                geo = influence.node() # Get object name
+                geo = influence.node() # Get mesh
 
+                for vert, weight in zip(influence.indicesIter(), weights): # Loop our verts
+                    for face in vert_to_face[geo][vert]:
+                        totals[geo][face][joint].append(weight)
 
-                # totals = collections.defaultdict(lambda: collections.defaultdict(list))
-                # for vert, weight in zip(influence, weights): # Iterate our vertices
-                #     for face in vert.connectedFaces():
-                #         totals[face][joint].append(weight) # Store weight
-                # for face, jnts in totals.iteritems(): # Loop our faces
-                #     largest = dict((sum(b) / len(b), a) for a, b in jnts.iteritems())
-                #     max_joint = largest[max(largest)]
-                #     print face.transform()
-                #     # TODO!!! GET TRANSFORM!!
+        # Caculate highest influence
+        for geo, faces in totals.iteritems():
+            for face, joints in faces.iteritems():
+                summed = dict((sum(b) / len(b), a) for a, b in joints.iteritems())
+                joint = summed[max(summed)] # Highest influence
+                cache1[geo][face] = joint
 
     for joint, influence in cache2.iteritems(): # slim down to a single call
         pmc.select(influence, r=True)
         cache2[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS)
-
+    return cache1, cache2
 
 def skin_influeces(skins):
     """
     Given a list of skins, return a dict with cached verts
     cache = {joint : "mesh.vtx[ID]"}
     """
-    cache = collections.defaultdict(list)
+    cache = dd(list)
     for skin in skins:
         joints = skin.getInfluence() # Get joints affecting skin
         for joint in joints:
@@ -90,7 +100,7 @@ def skin_weights(skins):
     Given a list of skins, return a cache with mesh, face ID and highest ranking joint
     cache = {mesh: {ID: joint}}
     """
-    cache = collections.defaultdict(dict)
+    cache = dd(dict)
     vert = "%s.vtx[%s]"
     for skin in skins:
         joints = skin.getInfluence() # Get joints affecting skin
