@@ -28,6 +28,11 @@ class Canvas(object):
         pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
         s.last_colour = selection
 
+    def erase(s, geos):
+        """ Wipe out colour on objects """
+        for m in meshes: pmc.setAttr("%s.displayColors" % m, 0)
+
+
 def paint(selection, colour=None):
     """ Set the colour of selection to be whatever """
     if colour:
