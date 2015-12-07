@@ -37,6 +37,8 @@ class Control(object):
         picker.callback_stop = s.deactivate_rig
         picker.set()
 
+        s.canvas = colour.Canvas()
+
         # Set up our selection tracker
         track.Selection(kws=True).callback = s.selection_changed
 
@@ -49,7 +51,7 @@ class Control(object):
     def cache(s, geos):
         """ Cache some meshes for use """
         s.geos = geos = dict((a, has.skin(a)) for a in geos) # Get skins
-        s.cache_weights, .cache_influence = cache.skins()
+        s.cache_weights, s.cache_influence = cache.skins()
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
 
     def activate_rig(s):
@@ -60,8 +62,8 @@ class Control(object):
     def deactivate_rig(s):
         """ turn off the rig """
         if s.making_selection: return
-        colour.paint(s.cache_all) # Paint it all grey and...
-        colour.erase(s.geos) # Clear our colour information
+        s.canvas.paint(s.cache_all) # Paint it all grey and...
+        s.canvas.erase(s.geos) # Clear our colour information
 
     def picked(s, mesh, ID):
         """ clicked on a mesh """
@@ -71,7 +73,7 @@ class Control(object):
             if mesh: # Did we select anything?
                 joint = s.cache_weights[mesh][ID] # Selected joint
                 canvas = s.cache_influence[joint]
-                colour.paint(canvas, YELLOW)
+                s.canvas.paint(canvas, YELLOW)
                 s.make_selection(joint) # Select the joint
         except KeyError:
             print "Joint missing from cache."
@@ -84,8 +86,8 @@ class Control(object):
                 if joint != s.drag_joint:
                     s.drag_joint = joint
                     canvas = s.cache_influence[joint]
-                    colour.paint(s.cache_all) # Clear canvas
-                    colour.paint(canvas, GREEN)
+                    s.canvas.paint(s.cache_all) # Clear canvas
+                    s.canvas.paint(canvas, GREEN)
                     pmc.refresh() # Update display
         except KeyError:
             print "Joint missing from cache."
@@ -99,8 +101,6 @@ class Control(object):
         if s.making_selection: # We are in the process of making a selection
             s.making_selection = False # Reset
             s.controlling_rig = True # We are now controlling the rig
-
-
 
     def make_selection(s, joint):
         """ select control object """

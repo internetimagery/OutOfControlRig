@@ -18,8 +18,13 @@ from collections import defaultdict as dd
 POLY_VERTS = 31 # Filter Expand index
 
 
+class Cache(object):
+    """ Cache of objects for quick lookup """
+    def __init__(s, meshes):
+        pass
 
-OpenMaya.MFnMesh.getFaceVertexIndex
+
+# OpenMaya.MFnMesh.getFaceVertexIndex
 
 
 def _map_vertices_to_faces(mesh):

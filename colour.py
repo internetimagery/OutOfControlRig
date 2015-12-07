@@ -24,32 +24,25 @@ class Canvas(object):
     def paint(s, selection, colour=None):
         """ Paint some colour on objects """
         colour = colour or s.base_colour
-        pmc.polyColorPerVertex(s.last_colour, rgb=s.base_colour, cdo=True)
+        if s.last_colour:
+            pmc.polyColorPerVertex(s.last_colour, rgb=s.base_colour, cdo=True)
         pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
         s.last_colour = selection
 
     def erase(s, geos):
         """ Wipe out colour on objects """
-        for m in meshes: pmc.setAttr("%s.displayColors" % m, 0)
+        for m in meshes:
+            pmc.polyColourPerVertex("%s.vtx[0:]" % m, rgb=s.base_colour)
+            pmc.setAttr("%s.displayColors" % m, 0)
 
-
-def paint(selection, colour=None):
-    """ Set the colour of selection to be whatever """
-    if colour:
-        pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
-    else:
-        pmc.polyColorPerVertex(selection, rgb=BASE_COLOUR, cdo=True)
-
-def erase(meshes):
-    """ Remove colours on meshes """
-    for m in meshes: pmc.setAttr("%s.displayColors" % m, 0)
 
 if __name__ == '__main__':
     # Testing
     import time
     pmc.system.newFile(force=True)
     xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    paint("%s.vtx[0:]" % xform, (0.2,0.6,0.7))
+    c = Canvas()
+    c.paint("%s.vtx[0:]" % xform, (0.2,0.6,0.7))
     for i in range(10):
         pmc.refresh()
         time.sleep(0.1)
