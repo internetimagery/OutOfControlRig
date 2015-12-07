@@ -11,8 +11,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# import track
-import OutOfControlRig.track as track
 import pymel.core as pmc
 import maya.api.OpenMaya as om # Use new API
 import maya.api.OpenMayaUI as omui
@@ -21,12 +19,13 @@ class Picker(object):
     """ Picker tool. Return point on mesh clicked """
     def __init__(s):
         s.name = "OutOfControlPicker"
+        s.active = False # tool state
         s.whitelist = [] # List of meshes to check against
         s.callback_start = None # Callback
         s.callback_click = None # Callback
         s.callback_drag = None # Callback
         s.callback_stop = None # Callback
-        s._last_tool = pmc.currentCtx() # Last tool used
+        s.last_tool = pmc.currentCtx() # Last tool used
 
         s.kill() # Clear out last tool if there
         pmc.context.draggerContext(
@@ -35,36 +34,37 @@ class Picker(object):
             releaseCommand=s.call_click,
             dragCommand=s.call_drag,
             cursor="hand",
-            image1="hands.png"
+            image1="hands.png",
+            undoMode="sequence",
         )
 
-        s.tracker = tracker = track.Tool(p=s.name)
-        tracker.callback = s._tool_changed # Watch for tool changes
+        # Track tool changes, allowing us to track previous tool
+        pmc.scriptJob(e=("PostToolChanged", s.track_change),p=s.name)
 
     def set(s):
         """ Activate Tool """
         last_tool, name = pmc.currentCtx(), s.name
         if last_tool != name:
-            s._last_tool = last_tool
+            s.last_tool = last_tool
             pmc.setToolTo(name) # Set our tool to the active tool
 
     def unset(s):
         """ Set us back to the last tool """
-        pmc.setToolTo(s._last_tool)
+        pmc.setToolTo(s.last_tool)
 
-    def _tool_changed(s, tool):
+    def track_change(s):
         """ Watch for tool changes """
+        tool = pmc.currentCtx()
         call1, call2 = s.callback_start, s.callback_stop
-        if tool == s.name and call1:
-            call1() # Changed to our tool
-        elif call2:
-            s._last_tool = pmc.currentCtx() # Track tool changes
-            call2() # Changed away from our tool
-
-    @property
-    def active(s):
-        """ Check if tool is currently active """
-        return pmc.currentCtx() == s.name
+        if tool == s.name:
+            if not s.active: # Not yet running
+                s.active = True
+                if call1: call1()
+        else:
+            if s.active: # Turning off
+                s.active = False
+                if call2: call2()
+            s.last_tool = tool
 
     def call_click(s):
         """ Call back click events """
@@ -94,8 +94,8 @@ class Picker(object):
                 intersection = om.MFnMesh(sel.getDagPath(0)).closestIntersection(*ray_args)
                 if intersection and intersection[3] != -1: # We have a hit!
                     return w.getShape(), intersection[2] # Hit mesh, and face ID
-        except RuntimeError as e:
-            print "Err", e
+        except RuntimeError:
+            pass
         return None, None
 
     def kill(s):
