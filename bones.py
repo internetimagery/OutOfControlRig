@@ -80,8 +80,8 @@ class Skeleton(collections.Set):
             chain[0].displayLocalAxis.set(1) # Mark joints that bend
             for i in range(chain_num - 2): # Joint chain is long enough to be complex
                 jnt1, jnt2, jnt3 = chain[i], chain[i+1], chain[i+2]
-                vec1 = jnt2.getTranslation() - jnt1.getTranslation()
-                vec2 = jnt3.getTranslation() - jnt2.getTranslation()
+                vec1 = jnt2.getTranslation("world") - jnt1.getTranslation("world")
+                vec2 = jnt3.getTranslation("world") - jnt2.getTranslation("world")
                 dot = vec1 * vec2
                 if vec1.isParallel(vec2): # Flag twist joint
                     limb[jnt2] = False
