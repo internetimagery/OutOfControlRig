@@ -154,6 +154,9 @@ class Skeleton(collections.Set):
         pmc.pointConstraint(controller, handle, mo=True)
         pmc.orientConstraint(controller, end, mo=True)
 
+# om.MSceneMessage.addCallback(om.MSceneMessage.kBeforeSave, func) # make changes before save
+# om.MSceneMessage.addCallback(om.MSceneMessage.kAfterSave, func) # put everything back
+
         def set_pos():
             with script_job_debug():
                 with save_position(b for a, b in secondary_limb.iteritems()):
