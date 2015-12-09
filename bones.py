@@ -1,8 +1,28 @@
 # Skeleton stuff
 
 import pymel.core as pmc
+import contextlib
 import collections
 import traceback
+
+@contextlib.contextmanager
+def save_position(joints):
+    """ Save the position of joints after changes have been made """
+    pos = dict((a, (a.translate.get(), a.rotate.get())) for a in joints)
+    try:
+        yield
+    finally:
+        for jnt, (p, r) in pos.iteritems():
+            jnt.translate.set(p)
+            jnt.rotate.set(r)
+
+@contextlib.contextmanager
+def script_job_debug():
+    """ Print out errors even while in scriptjobs """
+    try:
+        yield
+    except:
+        print traceback.format_exc(); raise
 
 class Skeleton(collections.Set):
     """ Skeleton. Contains limbs """
@@ -94,64 +114,79 @@ class Skeleton(collections.Set):
 
     def temp_ik(s, joint):
         """ Build a temporary IK chain onto joint chain """
-        for limb in s.limbs:
-            if joint in limb:
-                working_limb = limb
-                break
-        else: return # No result? Stop early
+        try:
+            for limb in s.limbs:
+                if joint in limb:
+                    working_limb = []
+                    found = False
+                    for jnt, twist in limb.iteritems(): # Strip out twist joints
+                        if twist: working_limb.append(jnt)
+                        if jnt == joint: raise StopIteration
+        except StopIteration:
+            pass
+        else:
+            print "Requested joint not in cache..."
+            return # No result? Stop early
+
+        if len(working_limb) < 2: return # We are on the root joint
 
         secondary_limb = collections.OrderedDict()
-        found = False
-        root = end = None # Two ends of our IK chain
         pmc.select(clear=True)
-        for i, (jnt, twist) in enumerate(working_limb.iteritems()): # Build short limb
-            if jnt == joint: found = True
-            if not i and jnt == joint: return # No IK on root joint
-            if twist:
-                pos = jnt.getTranslation("world")
-                new_jnt = pmc.joint(p=pos)
-                secondary_limb[new_jnt] = jnt
-                if root:
-                    end = new_jnt
-                else:
-                    root = new_jnt
-                if found: break # Stop on selected joint
+        for i, jnt in enumerate(working_limb): # Build short limb
+            pos = jnt.getTranslation("world")
+            new = pmc.joint(p=pos)
+            secondary_limb[new] = jnt
+            pmc.orientConstraint(new, jnt, mo=True)
+            if i:
+                end = new
+            else:
+                root = new
 
-        constraints = [pmc.orientConstraint(a, b, mo=True) for a, b in secondary_limb.iteritems()]
         handle, effector = pmc.ikHandle(sj=root, ee=end)
-        pmc.orientConstraint(handle, new_jnt, mo=True)
+        handle.visibility.set(0) # Hide handle
+        controller = pmc.group(em=True) # Set up controller
+        pmc.xform(controller,
+            roo=pmc.xform(jnt, q=True, roo=True),
+            t=pmc.xform(jnt, q=True, ws=True, t=True),
+            ro=pmc.xform(jnt, q=True, ws=True, ro=True),
+            ws=True
+        )
+        pmc.pointConstraint(controller, handle, mo=True)
+        pmc.orientConstraint(controller, end, mo=True)
+
+        def set_pos():
+            with script_job_debug():
+                with save_position(b for a, b in secondary_limb.iteritems()):
+                    pass
 
         def removal(): # Remove IK chain!
-            state = pmc.autoKeyframe(q=True, st=True)
-            pmc.autoKeyframe(st=False)
-            try:
-                for i, (jnt1, jnt2) in enumerate(secondary_limb.iteritems()):
-                    pmc.setKeyframe(jnt2.rotate)
-                    if not i: root = jnt1
-                pmc.delete(root)
-            except:
-                print traceback.format_exc(); raise
-            finally:
-                pmc.autoKeyframe(st=state)
+            with script_job_debug():
+                with save_position(b for a, b in secondary_limb.iteritems()):
+                    pmc.scriptJob(kill=set_job)
+                    for jnt in secondary_limb:
+                        if jnt.exists():
+                            pmc.delete(jnt)
+                    if controller.exists(): pmc.delete(controller)
 
+        pmc.select(controller, r=True)
+        set_job = pmc.scriptJob(ac=[controller.translate, set_pos], kws=True)
         pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
 
-        return handle
+        return controller
 
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
-    joints = [pmc.joint(p=a) for a in ((0,-5,0),(0,0,0),(0,3,0),(3,6,4))]
+    joints = [pmc.joint(p=a) for a in ((0,-5,0),(0,0,0),(0,3,0),(3,6,4),(6,2,8))]
     skel = Skeleton(joints)
     assert joints[2] in skel
     assert skel.get(joints[1]) == joints[2] # Skip twist joint
     print skel.get_limb(joints[1])
     def IK_test():
-        try:
+        with script_job_debug():
             sel = pmc.ls(sl=True, type="joint")
-            if sel:
+            if len(sel) == 1:
                 print "IK", sel[0]
                 skel.temp_ik(sel[0])
-        except:
-            print traceback.format_exc(); raise
+    joints[2].rotateX.set(20)
     pmc.scriptJob(e=["SelectionChanged", IK_test], kws=True)
