@@ -2,6 +2,7 @@
 
 import pymel.core as pmc
 import collections
+import traceback
 
 class Skeleton(collections.Set):
     """ Skeleton. Contains limbs """
@@ -50,7 +51,7 @@ class Skeleton(collections.Set):
     def get_limb(s, joint):
         """ Given a joint, get the corresponding limb """
         for limb in s.limbs:
-            if joint in limb: return limb
+            if joint in limb: return tuple(a for a, b in limb.iteritems() if b)
 
     def _build_limb(s, joint):
         """ Given a joint, form a limb """
@@ -91,6 +92,52 @@ class Skeleton(collections.Set):
             limb[jnt3] = True # End joint can't be twist
         return limb
 
+    def temp_ik(s, joint):
+        """ Build a temporary IK chain onto joint chain """
+        for limb in s.limbs:
+            if joint in limb:
+                working_limb = limb
+                break
+        else: return # No result? Stop early
+
+        secondary_limb = collections.OrderedDict()
+        found = False
+        root = end = None # Two ends of our IK chain
+        pmc.select(clear=True)
+        for i, (jnt, twist) in enumerate(working_limb.iteritems()): # Build short limb
+            if jnt == joint: found = True
+            if not i and jnt == joint: return # No IK on root joint
+            if twist:
+                pos = jnt.getTranslation("world")
+                new_jnt = pmc.joint(p=pos)
+                secondary_limb[new_jnt] = jnt
+                if root:
+                    end = new_jnt
+                else:
+                    root = new_jnt
+                if found: break # Stop on selected joint
+
+        constraints = [pmc.orientConstraint(a, b, mo=True) for a, b in secondary_limb.iteritems()]
+        handle, effector = pmc.ikHandle(sj=root, ee=end)
+        pmc.orientConstraint(handle, new_jnt, mo=True)
+
+        def removal(): # Remove IK chain!
+            state = pmc.autoKeyframe(q=True, st=True)
+            pmc.autoKeyframe(st=False)
+            try:
+                for i, (jnt1, jnt2) in enumerate(secondary_limb.iteritems()):
+                    pmc.setKeyframe(jnt2.rotate)
+                    if not i: root = jnt1
+                pmc.delete(root)
+            except:
+                print traceback.format_exc(); raise
+            finally:
+                pmc.autoKeyframe(st=state)
+
+        pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
+
+        return handle
+
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
@@ -98,4 +145,13 @@ if __name__ == '__main__':
     skel = Skeleton(joints)
     assert joints[2] in skel
     assert skel.get(joints[1]) == joints[2] # Skip twist joint
-    print skel
+    print skel.get_limb(joints[1])
+    def IK_test():
+        try:
+            sel = pmc.ls(sl=True, type="joint")
+            if sel:
+                print "IK", sel[0]
+                skel.temp_ik(sel[0])
+        except:
+            print traceback.format_exc(); raise
+    pmc.scriptJob(e=["SelectionChanged", IK_test], kws=True)
