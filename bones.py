@@ -1,5 +1,6 @@
 # Skeleton stuff
 
+import maya.api.OpenMaya as om
 import pymel.core as pmc
 import contextlib
 import collections
@@ -23,6 +24,21 @@ def script_job_debug():
         yield
     except:
         print traceback.format_exc(); raise
+
+# Cleanup between scene saves
+TEARDOWN_QUEUE = set()
+def before_run(*_):
+    funcs = TEARDOWN_QUEUE.copy()
+    TEARDOWN_QUEUE.clear()
+    for func in funcs: func()
+om.MSceneMessage.addCallback(om.MSceneMessage.kBeforeSave, before_run) # make changes before save
+
+SETUP_QUEUE = set()
+def after_run(*_):
+    funcs = SETUP_QUEUE.copy()
+    SETUP_QUEUE.clear()
+    for func in funcs: func()
+om.MSceneMessage.addCallback(om.MSceneMessage.kAfterSave, after_run) # put everything back
 
 class Skeleton(collections.Set):
     """ Skeleton. Contains limbs """
@@ -154,26 +170,38 @@ class Skeleton(collections.Set):
         pmc.pointConstraint(controller, handle, mo=True)
         pmc.orientConstraint(controller, end, mo=True)
 
-# om.MSceneMessage.addCallback(om.MSceneMessage.kBeforeSave, func) # make changes before save
-# om.MSceneMessage.addCallback(om.MSceneMessage.kAfterSave, func) # put everything back
-
         def set_pos():
             with script_job_debug():
                 with save_position(b for a, b in secondary_limb.iteritems()):
                     pass
 
-        def removal(): # Remove IK chain!
-            with script_job_debug():
-                with save_position(b for a, b in secondary_limb.iteritems()):
-                    pmc.scriptJob(kill=set_job)
-                    for jnt in secondary_limb:
-                        if jnt.exists():
-                            pmc.delete(jnt)
-                    if controller.exists(): pmc.delete(controller)
+        def teardown(): # Avoid saving our setup in scene file
+            removal()
+            SETUP_QUEUE.add(setup)
 
-        pmc.select(controller, r=True)
-        set_job = pmc.scriptJob(ac=[controller.translate, set_pos], kws=True)
-        pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
+        def setup(): # Put everything back
+            s.temp_ik(joint) # Rebuild
+
+        def removal(): # Remove IK chain!
+            TEARDOWN_QUEUE.discard(teardown)
+            SETUP_QUEUE.discard(setup)
+            with script_job_debug():
+                if controller.exists():
+                    with save_position(secondary_limb.values()):
+                        for jnt in secondary_limb:
+                            if jnt.exists():
+                                pmc.delete(jnt)
+                                break # Only need to delete the root joint
+                        pmc.delete(controller)
+
+        def select_controller(): # Delay execution to re-select after scene save
+            pmc.select(controller, r=True)
+            pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
+            pmc.scriptJob(ac=[controller.translate, set_pos], kws=True)
+        pmc.scriptJob(ie=select_controller, ro=True)
+
+        # Teardown and setup during attempted scene saves
+        TEARDOWN_QUEUE.add(teardown)
 
         return controller
 
