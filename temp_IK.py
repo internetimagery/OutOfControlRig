@@ -63,7 +63,9 @@ def control(joint_chain):
 
     @scriptJob
     def controller_moved(): # Track controller movements
-        print "Controller Moved!"
+        autokey = pmc.autoKeyframe(q=True, st=True)
+        if autokey:
+            print "Controller Moved!"
 
     @scriptJob
     def select_control(): # Delayed for scene save conveniences
