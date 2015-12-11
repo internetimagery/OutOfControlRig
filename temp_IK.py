@@ -1,24 +1,37 @@
-# Temporary IK chain to provide translation control to joints.
+# Temporary IK chain to provide intuitive translation control to joint chains.
+# Created By Jason Dixon. http://internetimagery.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
 import functools
 import traceback
-import collections
 import pymel.core as pmc
+from maya.api.OpenMaya import MSceneMessage as scene
 import maya.api.OpenMaya as om
 
 TEARDOWN_QUEUE = set()
 def before_save(*_):
+    """ Teardown IK before save """
     funcs = TEARDOWN_QUEUE.copy()
     TEARDOWN_QUEUE.clear()
     for func in funcs: func()
-om.MSceneMessage.addCallback(om.MSceneMessage.kBeforeSave, before_save) # make changes before save
+scene.addCallback(scene.kBeforeSave, before_save) # make changes before save
 
 SETUP_QUEUE = set()
 def after_save(*_):
+    """ Rebuild IK after save """
     funcs = SETUP_QUEUE.copy()
     SETUP_QUEUE.clear()
     for func in funcs: func()
-om.MSceneMessage.addCallback(om.MSceneMessage.kAfterSave, after_save) # put everything back
+scene.addCallback(scene.kAfterSave, after_save) # put everything back
 
 def scriptJob(func):
     """ Display Errors when running scriptjob """
@@ -30,10 +43,8 @@ def scriptJob(func):
             raise
     return inner
 
-@scriptJob
 def control(joint_chain):
     """ Build a temporary IK chain and select the handle """
-    print "CREATING JOINT"
     chain_num = len(joint_chain)
     if not chain_num: return # Nothing to select
     if chain_num == 1: return pmc.select(joint_chain[0], r=True) # No need for IK on a single joint chain
@@ -56,14 +67,13 @@ def control(joint_chain):
 
     @scriptJob
     def select_control(): # Delayed for scene save conveniences
-        print "SELECTING"
         if controller.exists():
             pmc.select(controller, r=True)
-            pmc.scriptJob(e=("SelectionChanged", remove), ro=True)
+            control.sel = pmc.scriptJob(e=("SelectionChanged", remove), ro=True)
 
     @scriptJob
-    def remove(): # Remove the chain
-        print "REMOVING JOINT"
+    def remove(from_scriptJob=True): # Remove the chain
+        if not from_scriptJob: pmc.scriptJob(kill=control.sel) # Cannot kill scriptJob while in scriptJob
         TEARDOWN_QUEUE.discard(teardown)
         matrices = tuple(a.getMatrix(ws=True) for a in joint_chain)
         try:
@@ -75,8 +85,7 @@ def control(joint_chain):
 
     @scriptJob
     def teardown(): # Tear down the chain on save
-        print "TEARDOWN!"
-        remove()
+        remove(False)
         SETUP_QUEUE.add(functools.partial(control, joint_chain))
 
     pmc.scriptJob(ie=select_control, ro=True) # Select our controller
@@ -98,39 +107,3 @@ if __name__ == '__main__':
     print "Select a joint and move it around."
     pmc.select(clear=True)
     pmc.scriptJob(e=("SelectionChanged", select_joint), kws=True)
-
-
-#     def set_pos():
-#         with script_job_debug():
-#             with save_position(b for a, b in secondary_limb.iteritems()):
-#                 pass
-#
-#     def teardown(): # Avoid saving our setup in scene file
-#         removal()
-#         SETUP_QUEUE.add(setup)
-#
-#     def setup(): # Put everything back
-#         s.temp_ik(joint) # Rebuild
-#
-#     def removal(): # Remove IK chain!
-#         TEARDOWN_QUEUE.discard(teardown)
-#         SETUP_QUEUE.discard(setup)
-#         with script_job_debug():
-#             if controller.exists():
-#                 with save_position(secondary_limb.values()):
-#                     for jnt in secondary_limb:
-#                         if jnt.exists():
-#                             pmc.delete(jnt)
-#                             break # Only need to delete the root joint
-#                     pmc.delete(controller)
-#
-#     def select_controller(): # Delay execution to re-select after scene save
-#         pmc.select(controller, r=True)
-#         pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
-#         pmc.scriptJob(ac=[controller.translate, set_pos], kws=True)
-#     pmc.scriptJob(ie=select_controller, ro=True)
-#
-#     # Teardown and setup during attempted scene saves
-#     TEARDOWN_QUEUE.add(teardown)
-#
-#     return controller
