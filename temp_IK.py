@@ -67,13 +67,12 @@ def control(joint_chain):
 
     @scriptJob
     def select_control(): # Delayed for scene save conveniences
-        if controller.exists():
-            pmc.select(controller, r=True)
-            control.sel = pmc.scriptJob(e=("SelectionChanged", remove), ro=True)
+        pmc.select(controller, r=True)
+        select_control.sel = pmc.scriptJob(e=("SelectionChanged", remove), ro=True)
 
     @scriptJob
     def remove(from_scriptJob=True): # Remove the chain
-        if not from_scriptJob: pmc.scriptJob(kill=control.sel) # Cannot kill scriptJob while in scriptJob
+        if not from_scriptJob: pmc.scriptJob(kill=select_control.sel) # Cannot kill scriptJob while in scriptJob
         TEARDOWN_QUEUE.discard(teardown)
         matrices = tuple(a.getMatrix(ws=True) for a in joint_chain)
         try:
