@@ -13,15 +13,11 @@
 
 import pymel.core as pmc
 import collections
-import functools
-import operator
 
 class Meshes(collections.MutableSet):
     """ Container for storing meshes """
     def __init__(s, name):
-        s.name = name
-        s.nodes = pmc.ls(name, type="objectSet") or [pmc.sets(n=name)]
-
+        s.nodes = pmc.ls(name, r=True, type="objectSet") or [pmc.sets(n=name)]
     def add(s, m): s.nodes[0].add(m)
     def discard(s, m):
         for sel in s.nodes:
