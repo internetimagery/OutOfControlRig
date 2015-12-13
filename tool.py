@@ -15,16 +15,19 @@ import pymel.core as pmc
 import maya.api.OpenMaya as om # Use new API
 import maya.api.OpenMayaUI as omui
 
+def missing(*_):
+    raise NotImplementedError
+
 class Picker(object):
     """ Picker tool. Return point on mesh clicked """
-    def __init__(s):
+    def __init__(s, whitelist, start=missing, stop=missing, click=missing, drag=missing):
         s.name = "OutOfControlPicker"
         s.active = False # tool state
-        s.whitelist = [] # List of meshes to check against
-        s.callback_start = None # Callback
-        s.callback_click = None # Callback
-        s.callback_drag = None # Callback
-        s.callback_stop = None # Callback
+        s.whitelist = whitelist # List of meshes to check against
+        s.callback_start = start # Callback
+        s.callback_stop = stop # Callback
+        s.callback_click = click # Callback
+        s.callback_drag = drag # Callback
         s.last_tool = pmc.currentCtx() # Last tool used
 
         s.kill() # Clear out last tool if there
@@ -105,21 +108,27 @@ class Picker(object):
 
 if __name__ == '__main__':
     # Testing
+    import random
     def start():
-        print "Tool started."
+        print "Tool started".center(20, "-")
     def stop():
-        print "Tool stopped."
+        print "Tool stopped".center(20, "-")
     def clicked(*args):
-        print "Clicked!", args
+        print "Clicked!".center(20, "-")
+        print args
     def dragged(*args):
-        print "Dragging!", args
+        print "Dragging!".center(20, "-")
+        print args
+    def rand_pos(): return [random.random() * 10 - 5 for a in range(3)]
     pmc.system.newFile(force=True)
-    xform1 = pmc.polyCylinder()[0] # Create a cylinder
-    xform2 = pmc.sphere(p=(2,0,0))[0]
-    p = Picker()
-    p.whitelist = [xform1, xform2] # Add object to our whitelist
-    p.callback_start = start
-    p.callback_click = clicked # Add our callback
-    p.callback_drag = dragged # Add our callback
-    p.callback_stop = stop
+    objs = [pmc.polySphere()[0] for a in range(3)]
+    for o in objs: pmc.xform(o, t=rand_pos())
+    p = Picker(
+        objs,
+        start,
+        stop,
+        clicked,
+        dragged
+    )
     p.set()
+    print "Click something".center(20, "-")

@@ -1,44 +1,28 @@
 # Skeleton stuff
 
+# Created By Jason Dixon. http://internetimagery.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
 import maya.api.OpenMaya as om
 import pymel.core as pmc
 import contextlib
 import collections
 import traceback
 
-@contextlib.contextmanager
-def save_position(joints):
-    """ Save the position of joints after changes have been made """
-    pos = dict((a, (a.translate.get(), a.rotate.get())) for a in joints)
-    try:
-        yield
-    finally:
-        for jnt, (p, r) in pos.iteritems():
-            jnt.translate.set(p)
-            jnt.rotate.set(r)
+def get_ik(jnt):
+    """ Get any IK handles attached to joint, if one exists """
+    ik_handles = [set(e.connections(s=False, type="ikHandle")).pop() for e in set(jnt.connections(s=False, type="ikEffector"))]
+    return ik_handles
 
-@contextlib.contextmanager
-def script_job_debug():
-    """ Print out errors even while in scriptjobs """
-    try:
-        yield
-    except:
-        print traceback.format_exc(); raise
-
-# Cleanup between scene saves
-TEARDOWN_QUEUE = set()
-def before_run(*_):
-    funcs = TEARDOWN_QUEUE.copy()
-    TEARDOWN_QUEUE.clear()
-    for func in funcs: func()
-om.MSceneMessage.addCallback(om.MSceneMessage.kBeforeSave, before_run) # make changes before save
-
-SETUP_QUEUE = set()
-def after_run(*_):
-    funcs = SETUP_QUEUE.copy()
-    SETUP_QUEUE.clear()
-    for func in funcs: func()
-om.MSceneMessage.addCallback(om.MSceneMessage.kAfterSave, after_run) # put everything back
 
 class Skeleton(collections.Set):
     """ Skeleton. Contains limbs """
@@ -128,96 +112,15 @@ class Skeleton(collections.Set):
             limb[jnt3] = True # End joint can't be twist
         return limb
 
-    def temp_ik(s, joint):
-        """ Build a temporary IK chain onto joint chain """
-        try:
-            for limb in s.limbs:
-                if joint in limb:
-                    working_limb = []
-                    found = False
-                    for jnt, twist in limb.iteritems(): # Strip out twist joints
-                        if twist: working_limb.append(jnt)
-                        if jnt == joint: raise StopIteration
-        except StopIteration:
-            pass
-        else:
-            print "Requested joint not in cache..."
-            return # No result? Stop early
-
-        if len(working_limb) < 2: return # We are on the root joint
-
-        secondary_limb = collections.OrderedDict()
-        pmc.select(clear=True)
-        for i, jnt in enumerate(working_limb): # Build short limb
-            pos = jnt.getTranslation("world")
-            new = pmc.joint(p=pos)
-            secondary_limb[new] = jnt
-            pmc.orientConstraint(new, jnt, mo=True)
-            if i:
-                end = new
-            else:
-                root = new
-
-        handle, effector = pmc.ikHandle(sj=root, ee=end)
-        handle.visibility.set(0) # Hide handle
-        controller = pmc.group(em=True) # Set up controller
-        pmc.xform(controller,
-            roo=pmc.xform(jnt, q=True, roo=True),
-            t=pmc.xform(jnt, q=True, ws=True, t=True),
-            ro=pmc.xform(jnt, q=True, ws=True, ro=True),
-            ws=True
-        )
-        pmc.pointConstraint(controller, handle, mo=True)
-        pmc.orientConstraint(controller, end, mo=True)
-
-        def set_pos():
-            with script_job_debug():
-                with save_position(b for a, b in secondary_limb.iteritems()):
-                    pass
-
-        def teardown(): # Avoid saving our setup in scene file
-            removal()
-            SETUP_QUEUE.add(setup)
-
-        def setup(): # Put everything back
-            s.temp_ik(joint) # Rebuild
-
-        def removal(): # Remove IK chain!
-            TEARDOWN_QUEUE.discard(teardown)
-            SETUP_QUEUE.discard(setup)
-            with script_job_debug():
-                if controller.exists():
-                    with save_position(secondary_limb.values()):
-                        for jnt in secondary_limb:
-                            if jnt.exists():
-                                pmc.delete(jnt)
-                                break # Only need to delete the root joint
-                        pmc.delete(controller)
-
-        def select_controller(): # Delay execution to re-select after scene save
-            pmc.select(controller, r=True)
-            pmc.scriptJob(e=["SelectionChanged", removal], ro=True) # Remove IK upon selection change
-            pmc.scriptJob(ac=[controller.translate, set_pos], kws=True)
-        pmc.scriptJob(ie=select_controller, ro=True)
-
-        # Teardown and setup during attempted scene saves
-        TEARDOWN_QUEUE.add(teardown)
-
-        return controller
 
 if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
-    joints = [pmc.joint(p=a) for a in ((0,-5,0),(0,0,0),(0,3,0),(3,6,4),(6,2,8))]
-    skel = Skeleton(joints)
-    assert joints[2] in skel
-    assert skel.get(joints[1]) == joints[2] # Skip twist joint
-    print skel.get_limb(joints[1])
-    def IK_test():
-        with script_job_debug():
-            sel = pmc.ls(sl=True, type="joint")
-            if len(sel) == 1:
-                print "IK", sel[0]
-                skel.temp_ik(sel[0])
-    joints[2].rotateX.set(20)
-    pmc.scriptJob(e=["SelectionChanged", IK_test], kws=True)
+    jnts = [pmc.joint(p=a) for a in ((0,-5,0),(0,0,0),(0,3,0),(3,6,4),(6,2,8))]
+    skel = Skeleton(jnts)
+    print "Twist Joint".center(20, "-")
+    print repr(jnts[1])
+    print "Skip Twist".center(20, "-")
+    print repr(skel.get(jnts[1]))
+    print "Skeleton".center(20, "-")
+    print skel

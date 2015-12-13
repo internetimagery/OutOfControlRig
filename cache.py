@@ -67,9 +67,9 @@ if __name__ == '__main__':
     # Testing
     from pprint import pprint as pp
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder(sy=5) # Create a cylinder and joints
+    xform, shape = pmc.polyCylinder(sy=2) # Create a cylinder and joints
     jnts = [pmc.joint(p=a) for a in ((0,-1,0),(0,0,0),(0,1,0))]
-    sk = pmc.skinCluster(jnts[0], xform, mi=2) # Bind them to the cylinder
+    sk = pmc.skinCluster(jnts[0], xform) # Bind them to the cylinder
 
     inf, pref = preferred_joint_and_influence([xform])
     print "Influence".center(20, "-")

@@ -128,6 +128,6 @@ if __name__ == '__main__':
         if len(sel) == 1:
             pmc.scriptJob(ro=True, ie=lambda:control(joints[:joints.index(sel[0]) + 1]))
 
-    print "Select a joint and move it around."
+    print "Select a joint and move it around..."
     pmc.select(clear=True)
     pmc.scriptJob(e=("SelectionChanged", select_joint), kws=True)
