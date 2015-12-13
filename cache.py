@@ -15,119 +15,64 @@ import pymel.core as pmc
 import maya.api.OpenMaya as om
 from collections import defaultdict as dd
 
-POLY_VERTS = 31 # Filter Expand index
+class Geo_Cache(dict):
+    """ Map vertices to faces """
+    def __missing__(s, mesh):
+        vert_map = dd(list)
+        try:
+            offset, verts = mesh.getVertices()
+            faces = (d for c in ((a,)*b for a, b in enumerate(offset)) for d in c)
+            for vert, face in zip(verts, faces):
+                vert_map[vert].append(face)
+        except AttributeError:
+            print "Invalid mesh, %s" % mesh
+        dict.__setitem__(s, mesh, vert_map)
+        return vert_map
 
-
-class Cache(object):
-    """ Cache of objects for quick lookup """
-    def __init__(s, meshes):
-        pass
-
-
-# OpenMaya.MFnMesh.getFaceVertexIndex
-
-
-def _map_vertices_to_faces(mesh):
-    """ Map vert indices to faces """
-    try:
-        face_offset, vert_index = mesh.getVertices()
-        face_index = (d for c in ((a,)*b for a, b in enumerate(face_offset)) for d in c)
-        vert_to_face = dd(list) # Associate faces and vertices
-        for vert, face in zip(vert_index, face_index):
-            vert_to_face[vert].append(face)
-        return vert_to_face
-    except AttributeError as e:
-        print "Invalid mesh", mesh, e
-
-def skins(): # Hoover up all skins in the scene
+def preferred_joint_and_influence(meshes):
     """
-    Cache all joint and skin info in the scene
-    cache1 = {mesh: {faceID: joint}}
-    cache2 = {joint: vertices}
+    Given a list of meshes. Cache joint influences and preferred joints
+    cache_inf = {joint: influence}
+    cache_pref = {mesh: {faceID: joint}}
     """
-    skins = pmc.ls(type="skinCluster")
-    cache1 = dd(dict) # preferred joint per face
-    cache2 = dd(list) # joints influence
-    vert_to_face = {} # vert to face mapping
-    for skin in skins:
-        joints = skin.getInfluence() # Get affecting joints
-        geos = skin.getGeometry() # Get meshes
-        for geo in geos: # Associate verts with faces
-            if geo not in vert_to_face:
-                vert_to_face[geo] = _map_vertices_to_faces(geo) or []
+    mesh_map = Geo_Cache()
+    influence = dd(list)
+    totals = dd(lambda: dd(dict))
 
-        totals = dd(lambda: dd(lambda: dd(list))) # work out highest influence per face
-        for joint in joints: # This seems to run much faster
-            influence_list, weights = skin.getPointsAffectedByInfluence(joint)
-            for influence in influence_list: # A list populated by one item? Ugh...
-                cache2[joint].append(influence) # Add influence to the joint
-                geo = influence.node() # Get mesh
+    for skin in (pmc.mel.findRelatedSkinCluster(a) for a in meshes):
+        if skin:
+            skin = pmc.PyNode(skin)
+            joints = skin.getInfluence() # Get joints
 
-                for vert, weight in zip(influence.indicesIter(), weights): # Loop our verts
-                    for face in vert_to_face[geo][vert]:
-                        totals[geo][face][joint].append(weight)
+            for jnt in joints: # Loop joints to get influences etc
+                influences, weights = skin.getPointsAffectedByInfluence(jnt)
+                for inf in influences: # A list for some reason...
+                    influence[jnt].append(inf) # Quick! Cache influence of joint
 
-        # Caculate highest influence
-        for geo, faces in totals.iteritems():
-            for face, joints in faces.iteritems():
-                summed = dict((sum(b) / len(b), a) for a, b in joints.iteritems())
-                joint = summed[max(summed)] # Highest influence
-                cache1[geo][face] = joint
+                    mesh = inf.node()
+                    for vert, weight in zip(inf.indicesIter(), weights): # Loop our verts
+                        for face in mesh_map[mesh][vert]:
+                            totals[mesh][face][weight] = jnt
 
-    for joint, influence in cache2.iteritems(): # slim down to a single call
-        pmc.select(influence, r=True)
-        cache2[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS)
-    return cache1, cache2
+    sel = pmc.ls(sl=True)
+    cache_inf = dict(pmc.select(b, r=True) or (a, tuple(pmc.PyNode(c) for c in pmc.filterExpand(ex=False, sm=31))) for a, b in influence.iteritems())
+    pmc.select(sel, r=True)
 
-def skin_influeces(skins):
-    """
-    Given a list of skins, return a dict with cached verts
-    cache = {joint : "mesh.vtx[ID]"}
-    """
-    cache = dd(list)
-    for skin in skins:
-        joints = skin.getInfluence() # Get joints affecting skin
-        for joint in joints:
-            pmc.select(clear=True)
-            skin.selectInfluenceVerts(joint) # Select verts associated with joint
-            for vert in pmc.filterExpand(sm=POLY_VERTS) or []: # Pull out each vertex
-                influences = pmc.animation.skinPercent(skin, vert, q=True, v=True)
-                for i, influence in enumerate(influences):
-                    if 0.2 < influence: # Trim tiny influences.
-                        cache[joints[i]].append(vert) # Add to cache
-    for joint in cache:
-        pmc.select(cache[joint], r=True)
-        cache[joint] = pmc.filterExpand(ex=False, sm=POLY_VERTS) # Reduce calls
-    return cache
+    cache_pref = dict((a, dict((c, d[max(d)]) for c, d in b.iteritems())) for a, b in totals.iteritems())
 
-def skin_weights(skins):
-    """
-    Given a list of skins, return a cache with mesh, face ID and highest ranking joint
-    cache = {mesh: {ID: joint}}
-    """
-    cache = dd(dict)
-    vert = "%s.vtx[%s]"
-    for skin in skins:
-        joints = skin.getInfluence() # Get joints affecting skin
-        geos = skin.getGeometry() # Mesh affecting skin
-        for geo in geos:
-            for ID in range(geo.numFaces()): # Iterate through all faces
-                verts = tuple(vert % (geo, a) for a in geo.getPolygonVertices(ID))
-                weights = tuple(pmc.animation.skinPercent(str(skin), a, q=True, v=True) for a in verts)
-                totals = {} # Record influences from joints
-                for i, w in enumerate(zip(*weights)): # Loop through joints and weights
-                    totals[sum(w) / len(verts)] = joints[i] # Identical weights pick joint at random
-                highest_weight = totals[max(totals)]
-                cache[geo][ID] = highest_weight # Record in our cache
-    return cache
+    return cache_inf, cache_pref
+
 
 if __name__ == '__main__':
     # Testing
+    from pprint import pprint as pp
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    jnt1, jnt2, jnt3 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,0,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform, mi=2) # Bind them to the cylinder
+    xform, shape = pmc.polyCylinder(sy=5) # Create a cylinder and joints
+    jnts = [pmc.joint(p=a) for a in ((0,-1,0),(0,0,0),(0,1,0))]
+    sk = pmc.skinCluster(jnts[0], xform, mi=2) # Bind them to the cylinder
 
-    print skins()
-    # print skin_influeces([sk])
-    # print skin_weights([sk])
+    inf, pref = preferred_joint_and_influence([xform])
+    print "Influence".center(20, "-")
+    pp(inf)
+    print "Preference".center(20, "-")
+    pp(pref)
