@@ -15,35 +15,40 @@ import pymel.core as pmc
 
 BASE_COLOUR = (0.5,0.5,0.5) # Base colour
 
-class Canvas(object):
-    """ Paint objects """
-    base_colour = (0.5,0.5,0.5)
-    def __init__(s):
-        s.last_colour = None
+def paint(selection, colour=None):
+    """ Colour selection """
+    colour = colour or BASE_COLOUR
+    if paint.last:
+        pmc.polyColorPerVertex(paint.last, rgb=BASE_COLOUR, cdo=True)
+    pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
+    paint.last = selection
+paint.last = None
 
-    def paint(s, selection, colour=None):
-        """ Paint some colour on objects """
-        colour = colour or s.base_colour
-        if s.last_colour:
-            pmc.polyColorPerVertex(s.last_colour, rgb=s.base_colour, cdo=True)
-        pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
-        s.last_colour = selection
-
-    def erase(s, geos):
-        """ Wipe out colour on objects """
-        for m in meshes:
-            pmc.polyColourPerVertex("%s.vtx[0:]" % m, rgb=s.base_colour)
-            pmc.setAttr("%s.displayColors" % m, 0)
-
+def erase(mesh):
+    """ Clear / Prepare colour on mesh """
+    pmc.polyColorPerVertex(mesh.vtx, rgb=BASE_COLOUR)
+    mesh.displayColors.set(0)
 
 if __name__ == '__main__':
     # Testing
-    import time
+    import time, threading, random
+    from maya.utils import executeInMainThreadWithResult as ex
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder() # Create a cylinder and joints
-    c = Canvas()
-    c.paint("%s.vtx[0:]" % xform, (0.2,0.6,0.7))
-    for i in range(10):
-        pmc.refresh()
-        time.sleep(0.1)
-    erase([xform])
+    xform, shape = pmc.polySphere() # Create a cylinder and joints
+    vert_num = xform.numVertices() - 1
+    erase(xform)
+    def flip():
+        def random_colour():
+            try:
+                col = [random.random() for a in range(3)]
+                rng = sorted([int(random.random() * vert_num)  for a in range(2)])
+                sel = xform.vtx[slice(*rng)]
+                paint(sel, col)
+                return True
+            except pmc.MayaNodeError:
+                pass
+        while True:
+            if not ex(random_colour): break
+            time.sleep(1)
+    pmc.select(clear=True)
+    pmc.scriptJob(ro=True, ie=threading.Thread(target=flip).start)

@@ -11,6 +11,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+# TODO: Make it work nice with existing constraint setups. Orient / Aim / Parent
+# TODO: Work with locked rotation attributes
+# TODO: Correctly twist the Twist joints.
+
 import functools
 import traceback
 import pymel.core as pmc
