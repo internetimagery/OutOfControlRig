@@ -76,7 +76,7 @@ def control(joint_chain):
                     pmc.currentTime(q=True)
                     for jnt, con in zip(joint_chain, constraints):
                         pmc.setKeyframe(jnt.rotate)
-                        for blend in set(con.connections(type="pairBlend")):
+                        for blend in set(con.outputs(type="pairBlend")):
                             for attr in blend.weight.inputs(p=True):
                                 attr.set(1) # Keep blend from messing with us
             finally:
@@ -124,4 +124,4 @@ if __name__ == '__main__':
             control(joints[:joints.index(sel[0]) + 1])
     print "Select a joint and move it around."
     pmc.select(clear=True)
-    pmc.scriptJob(e=("SelectionChanged", select_joint), ro=True)# kws=True)
+    pmc.scriptJob(e=("SelectionChanged", select_joint), kws=True)
