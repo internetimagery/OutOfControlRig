@@ -112,19 +112,22 @@ def control(joint_chain):
     pmc.scriptJob(ie=select_control, ro=True) # Select our controller
     pmc.scriptJob(ac=(controller.translate, controller_moved), kws=True)
     TEARDOWN_QUEUE.add(teardown)
+    return controller
 
 
 if __name__ == '__main__':
     # Testing. Build a new scene with a simple random joint chain
     import random, itertools
+    num_joints = 4
     pmc.system.newFile(force=True)
     def random_pos(): return (random.random() * 10 - 5 for a in range(3))
-    joints = [pmc.joint(p=random_pos()) for a in range(3)]
+    joints = [pmc.joint(p=random_pos()) for a in range(num_joints)]
     @scriptJob
     def select_joint():
         sel = pmc.ls(sl=True, type="joint")
         if len(sel) == 1:
-            control(joints[:joints.index(sel[0]) + 1])
+            pmc.scriptJob(ro=True, ie=lambda:control(joints[:joints.index(sel[0]) + 1]))
+
     print "Select a joint and move it around."
     pmc.select(clear=True)
     pmc.scriptJob(e=("SelectionChanged", select_joint), kws=True)
