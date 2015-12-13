@@ -17,6 +17,8 @@ import pymel.core as pmc
 from maya.api.OpenMaya import MSceneMessage as scene
 import maya.api.OpenMaya as om
 
+KEY = functools.partial(pmc.keyframe, q=True, tc=True, vc=True)
+
 TEARDOWN_QUEUE = set()
 def before_save(*_):
     """ Teardown IK before save """
@@ -63,9 +65,22 @@ def control(joint_chain):
 
     @scriptJob
     def controller_moved(): # Track controller movements
-        autokey = pmc.autoKeyframe(q=True, st=True)
-        if autokey:
-            print "Controller Moved!"
+        new_keys = frozenset(KEY(controller.translate))
+        old_keys = controller_moved.keys
+        if new_keys != old_keys:
+            controller_moved.keys = new_keys
+            changed = frozenset(a[0] for a in new_keys ^ old_keys) # Get time changed
+            curr_time = pmc.currentTime(q=True)
+            try:
+                for time in changed:
+                    pmc.currentTime(q=True)
+                    for jnt, con in zip(joint_chain, constraints):
+                        pmc.setKeyframe(jnt.rotate)
+                        for blend in set(con.connections(type="pairBlend")):
+                            for attr in blend.weight.inputs(p=True):
+                                attr.set(1) # Keep blend from messing with us
+            finally:
+                pmc.currentTime(curr_time)
 
     @scriptJob
     def select_control(): # Delayed for scene save conveniences
@@ -89,6 +104,8 @@ def control(joint_chain):
         remove(False)
         SETUP_QUEUE.add(functools.partial(control, joint_chain))
 
+    if pmc.autoKeyframe(q=True, st=True): controller.translate.setKey() # Prep autokey
+    controller_moved.keys = frozenset(KEY(controller.translate))
     pmc.scriptJob(ie=select_control, ro=True) # Select our controller
     pmc.scriptJob(ac=(controller.translate, controller_moved), kws=True)
     TEARDOWN_QUEUE.add(teardown)
@@ -107,4 +124,4 @@ if __name__ == '__main__':
             control(joints[:joints.index(sel[0]) + 1])
     print "Select a joint and move it around."
     pmc.select(clear=True)
-    pmc.scriptJob(e=("SelectionChanged", select_joint), kws=True)
+    pmc.scriptJob(e=("SelectionChanged", select_joint), ro=True)# kws=True)
