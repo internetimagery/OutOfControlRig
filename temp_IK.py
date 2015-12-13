@@ -67,20 +67,23 @@ def control(joint_chain):
     def controller_moved(): # Track controller movements
         new_keys = frozenset(KEY(controller.translate))
         old_keys = controller_moved.keys
-        if new_keys != old_keys:
+        if new_keys != old_keys: # If our controller is keyed. Transfer keys onto joints.
             controller_moved.keys = new_keys
             changed = frozenset(a[0] for a in new_keys ^ old_keys) # Get time changed
-            curr_time = pmc.currentTime(q=True)
+            curr_time = last_time = pmc.currentTime(q=True)
             try:
                 for time in changed:
-                    pmc.currentTime(q=True)
+                    if time != last_time:
+                        pmc.currentTime(q=True)
+                        last_time = time
                     for jnt, con in zip(joint_chain, constraints):
                         pmc.setKeyframe(jnt.rotate)
                         for blend in set(con.outputs(type="pairBlend")):
                             for attr in blend.weight.inputs(p=True):
                                 attr.set(1) # Keep blend from messing with us
             finally:
-                pmc.currentTime(curr_time)
+                if curr_time != last_time:
+                    pmc.currentTime(curr_time)
 
     @scriptJob
     def select_control(): # Delayed for scene save conveniences
