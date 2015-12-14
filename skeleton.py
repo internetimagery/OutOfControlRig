@@ -14,6 +14,7 @@
 
 import maya.api.OpenMaya as om
 import pymel.core as pmc
+import collections
 
 def get_ik(jnt):
     """ Get any IK handles attached to joint, if one exists """
@@ -21,8 +22,8 @@ def get_ik(jnt):
     return ik_handles
 
 
-class Skeleton(object):
-    """ Skeleton. Contains limbs """
+class Bones(object):
+    """ Skeleton. Contains limbs. Collection of Joints """
     def __init__(s, joints):
         s.limbs = tuple(s.collect_limbs(joints))
 
@@ -45,16 +46,7 @@ class Skeleton(object):
     def get_real_joint(s, joint):
         """ Given a joint name, get corresponding non-twist joint """
         for limb in s.limbs:
-            if joint in limb:
-                start = False # Looped up to the joint?
-                for jnt, twist in limb.iteritems():
-                    if jnt == joint: start = True # Start the real loop!
-                    if start and twist: return jnt # Return next non-twist joint
-
-    def get_limb(s, joint):
-        """ Given a joint, get the corresponding limb """
-        for limb in s.limbs:
-            if joint in limb: return tuple(a for a, b in limb.iteritems() if b)
+            if joint in limb: return limb[joint]
 
     def collect_limbs(s, joints):
         """ Given a list of joints. Turn them into list of limbs """
@@ -96,7 +88,6 @@ class Skeleton(object):
                 jnt1, jnt2, jnt3 = chain[i], chain[i+1], chain[i+2]
                 vec1 = jnt2.getTranslation("world") - jnt1.getTranslation("world")
                 vec2 = jnt3.getTranslation("world") - jnt2.getTranslation("world")
-                dot = vec1 * vec2
                 if vec1.isParallel(vec2): # Flag twist joint
                     limb[jnt2] = buff
                 else:
@@ -111,7 +102,7 @@ if __name__ == '__main__':
     # Testing
     pmc.system.newFile(force=True)
     jnts = [pmc.joint(p=a) for a in ((0,-5,0),(0,0,0),(0,3,0),(3,6,4),(6,2,8))]
-    skel = Skeleton(jnts)
+    skel = Bones(jnts)
     print "Twist Joint".center(20, "-")
     print repr(jnts[1])
     print "Skip Twist".center(20, "-")
