@@ -24,14 +24,11 @@ class Meshes(collections.MutableSet):
             if m in sel: sel.remove(m)
     def __len__(s): return sum(len(a) for a in s.nodes)
     def __iter__(s):
-        no_repeat = set()
-        for n in s.nodes:
-            for m in n:
-                if m not in no_repeat:
-                    no_repeat.add(m)
-                    yield m
-    def __contains__(s, m): return m in set(a for a in s)
-    def __repr__(s): return "Collection :: %s" % repr(set(a for a in s))
+        for node in s.nodes:
+            for mesh in node:
+                yield mesh
+    def __contains__(s, m): return m in set(b for a in s.nodes for b in a)
+    def __repr__(s): return "Collection :: [%s]" % ",".join(repr(a) for a in s)
 
 if __name__ == '__main__':
     # Testing

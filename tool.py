@@ -20,7 +20,7 @@ def missing(*_):
 
 class Picker(object):
     """ Picker tool. Return point on mesh clicked """
-    def __init__(s, whitelist, start=missing, stop=missing, click=missing, drag=missing):
+    def __init__(s, whitelist=missing, start=missing, stop=missing, click=missing, drag=missing):
         s.name = "OutOfControlPicker"
         s.active = False # tool state
         s.whitelist = whitelist # List of meshes to check against
@@ -91,7 +91,7 @@ class Picker(object):
             omui.M3dView().active3dView().viewToWorld(int(viewX), int(viewY), position, direction)
             # Run through our whitelist, casting a ray on each and checking for hits
             ray_args = (om.MFloatPoint(position), om.MFloatVector(direction), om.MSpace.kWorld, 99999, False)
-            for w in s.whitelist:
+            for w in s.whitelist():
                 sel = om.MSelectionList() # New selection list
                 sel.add(str(w)) # Add object
                 intersection = om.MFnMesh(sel.getDagPath(0)).closestIntersection(*ray_args)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     objs = [pmc.polySphere()[0] for a in range(3)]
     for o in objs: pmc.xform(o, t=rand_pos())
     p = Picker(
-        objs,
+        (lambda: objs),
         start,
         stop,
         clicked,
