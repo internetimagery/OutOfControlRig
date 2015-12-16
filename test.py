@@ -1,21 +1,15 @@
 # Testing things
 
-import maya.OpenMaya as old_om
-import maya.api.OpenMaya as om
-import maya.api.OpenMayaUI as omui
-import maya.cmds as cmds
-import pymel.core as pmc
+import timeit
+import random
+import sys
 
-def MObject(name):
-    sel = om.MSelectionList()
-    sel.add(name)
-    return sel.getDependNode(0)
+def build():
+    for i in range(1000):
+        yield (i, random.random())
 
-pmc.system.newFile(force=True)
-xform, shape = pmc.polyCylinder(sy=5) # Create a cylinder and joints
-jnt1, jnt2, jnt3 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,0,0)), pmc.joint(p=(0,1,0))
-sk = pmc.skinCluster(jnt1, xform, mi=1) # Bind them to the cylinder
+d = dict(build()) # numerical index
+l = list(a[1] for a in build()) # Regular index
+t = tuple(a[1] for a in build())
 
-sel = om.MSelectionList()
-sel.add(str(sk.weightList))
-plug = sel.getPlug(0)
+print sorted(d)

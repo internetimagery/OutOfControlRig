@@ -33,7 +33,7 @@ def preferred_joint_and_influence(meshes):
     """
     Given a list of meshes. Cache joint influences and preferred joints
     cache_inf = {joint: influence}
-    cache_pref = {mesh: {faceID: joint}}
+    cache_pref = {mesh: (joint, joint, ...)}
     """
     mesh_map = Geo_Cache()
     influence = dd(list)
@@ -58,7 +58,7 @@ def preferred_joint_and_influence(meshes):
     cache_inf = dict(pmc.select(b, r=True) or (a, tuple(pmc.PyNode(c) for c in pmc.filterExpand(ex=False, sm=31))) for a, b in influence.iteritems())
     pmc.select(sel, r=True)
 
-    cache_pref = dict((a, dict((c, d[max(d)]) for c, d in b.iteritems())) for a, b in totals.iteritems())
+    cache_pref = dict((a, tuple(b[c][max(b[c])] for c in sorted(b))) for a, b in totals.iteritems())
 
     return cache_inf, cache_pref
 
