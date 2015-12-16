@@ -19,7 +19,10 @@ def paint(selection, colour=None):
     """ Colour selection """
     colour = colour or BASE_COLOUR
     if paint.last:
-        pmc.polyColorPerVertex(paint.last, rgb=BASE_COLOUR, cdo=True)
+        try:
+            pmc.polyColorPerVertex(paint.last, rgb=BASE_COLOUR, cdo=True)
+        except RuntimeError as e:
+            print e
     pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
     paint.last = selection
 paint.last = None

@@ -15,17 +15,65 @@
 import maya.api.OpenMaya as om
 import pymel.core as pmc
 import collections
+import itertools
+
+def chunk(iterable, size):
+    """ Iterate in chunks """
+    iterables = itertools.tee(iterable, size)
+    for a, b in enumerate(iterables):
+        for c in range(a): b.next() # Offset iterables
+    return itertools.izip(*iterables)
 
 def get_ik(jnt):
     """ Get any IK handles attached to joint, if one exists """
     ik_handles = [set(e.connections(s=False, type="ikHandle")).pop() for e in set(jnt.connections(s=False, type="ikEffector"))]
     return ik_handles
 
+def get_limb(joint):
+    """ Given a joint. Walk the limb """
+    roots = [joint]
+    for parent in joint.getAllParents(): # Walk backwards
+        if parent.type() != "joint" or len(parent.getChildren(type="joint")) != 1 : break
+        roots.append(parent)
+    for root in reversed(roots):
+        yield root
+    children = joint.getChildren(type="joint")
+    while len(children) == 1: # Walk forwards
+        joint = children[0]
+        children = joint.getChildren(type="joint")
+        yield joint
+
+def get_twists(limb):
+    """ Given a limb, return all twist joint roots """
+    limb_gen = ((a, a.getTranslation("world")) for a in limb)
+    try:
+        for i, ((j1,j1_pos),(j2,j2_pos),(j3,j3_pos)) in enumerate(chunk(limb_gen, 3)):
+            if not i: # First joint
+                buff = j1 # Initialize our buffer
+                yield (j1, j1) # Joint and its "root"
+            vec1 = j2_pos - j1_pos
+            vec2 = j3_pos - j2_pos
+            if not vec1.isParallel(vec2): # We have a kink in the joint, not a twist
+                buff = j2
+            yield (j2, buff)
+        yield (j3, j3) # End joint can't be a twist
+    except StopIteration: # Joint chain is less than three, no twists
+        for jnt in limb_gen:
+            yield (jnt, jnt)
+
+def get_skeleton(joints):
+    """ Given a number of joints, form the corresponding limbs """
+    seen = set() # Avoid duplicates
+    for jnt in joints:
+        if jnt not in seen:
+            limb = collections.OrderedDict(get_twists(get_limb(jnt)))
+            seen |= set(limb)
+            yield limb
 
 class Bones(object):
     """ Skeleton. Contains limbs. Collection of Joints """
     def __init__(s, joints):
-        s.limbs = tuple(s.collect_limbs(joints))
+        s.limbs = tuple(get_skeleton(joints))
 
     def __len__(s):
         """ Number of joints in skeleton """
@@ -47,55 +95,6 @@ class Bones(object):
         """ Given a joint name, get corresponding non-twist joint """
         for limb in s.limbs:
             if joint in limb: return limb[joint]
-
-    def collect_limbs(s, joints):
-        """ Given a list of joints. Turn them into list of limbs """
-        seen = set()
-        for jnt in joints:
-            if jnt not in seen:
-                limb = s.build_limb(jnt)
-                seen |= set(limb)
-                yield limb
-
-    def build_limb(s, joint):
-        """ Given a joint, form a limb """
-        chain = []
-        def walk(jnt):
-            chain.append(jnt)
-            children = jnt.getChildren(type="joint")
-            if len(children) == 1:
-                walk(children[0])
-        walk(joint) # Walk down the chain
-
-        parents = joint.getAllParents()
-        for parent in parents: # Walk towards root
-            children = parent.getChildren(type="joint")
-            if len(children) == 1:
-                chain.insert(0, parent)
-        # Now we have a complete limb!!
-
-        # Flag parallel joints as twist joints
-        limb = collections.OrderedDict()
-        chain_num = len(chain) # Number of elements
-        if len(chain) < 3: # Too small to contain twist joints
-            for i in range(chain_num):
-                limb[chain[i]] = chain[i] # Mark as standalone joint
-        else:
-            limb[chain[0]] = chain[0] # Root can't be twist joint
-            chain[0].displayLocalAxis.set(1) # Mark joints that bend. Visual feedback
-            buff = chain[0]
-            for i in range(chain_num - 2): # Joint chain is long enough to be complex
-                jnt1, jnt2, jnt3 = chain[i], chain[i+1], chain[i+2]
-                vec1 = jnt2.getTranslation("world") - jnt1.getTranslation("world")
-                vec2 = jnt3.getTranslation("world") - jnt2.getTranslation("world")
-                if vec1.isParallel(vec2): # Flag twist joint
-                    limb[jnt2] = buff
-                else:
-                    limb[jnt2] = jnt2
-                    buff = jnt2
-                    jnt2.displayLocalAxis.set(1) # Mark joints that bend
-            limb[jnt3] = jnt3 # End joint can't be twist
-        return limb
 
 
 if __name__ == '__main__':
