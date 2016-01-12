@@ -17,7 +17,12 @@ import collections
 class Meshes(collections.MutableSet):
     """ Container for storing meshes """
     def __init__(s, name):
-        s.nodes = pmc.ls(name, r=True, type="objectSet") or [pmc.sets(n=name)]
+        sel = pmc.ls(sl=True)
+        pmc.select(clear=True)
+        try:
+            s.nodes = pmc.ls(name, r=True, type="objectSet") or [pmc.sets(n=name)]
+        finally:
+            pmc.select(sel, r=True)
     def add(s, m): s.nodes[0].add(m)
     def discard(s, m):
         for sel in s.nodes:

@@ -42,8 +42,8 @@ class Picker(object):
             s.name,
             name=s.name,
             prePressCommand=s.initialize_click,
-            releaseCommand=s.call_click,
-            dragCommand=s.call_drag,
+            releaseCommand=s.tool_click,
+            dragCommand=s.tool_drag,
             initialize=s.tool_start,
             finalize=s.tool_end,
             cursor="hand",
@@ -65,6 +65,16 @@ class Picker(object):
         s.active = True
         s.start()
 
+    def tool_click(s):
+        """ Call back click events """
+        call = s.click
+        if call: call(*s._pick_point())
+
+    def tool_drag(s):
+        """ Call back drag events """
+        call = s.drag
+        if call: call(*s._pick_point())
+
     def watch_tools(s):
         """ Track changes to tools """
         curr_tool = pmc.currentCtx()
@@ -84,16 +94,6 @@ class Picker(object):
         s.whitelist = sel = om.MSelectionList()
         for m in s.meshes():
             sel.add(str(m))
-
-    def call_click(s):
-        """ Call back click events """
-        call = s.click
-        if call: call(*s._pick_point())
-
-    def call_drag(s):
-        """ Call back drag events """
-        call = s.drag
-        if call: call(*s._pick_point())
 
     def _pick_point(s):
         """ Pick a point on mesh from where user clicked """
