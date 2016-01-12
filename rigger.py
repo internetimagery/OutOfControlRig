@@ -18,6 +18,8 @@ import maya.api.OpenMaya as om
 import OutOfControlRig.tool as tool
 import OutOfControlRig.cache as cache
 import OutOfControlRig.colour as colour
+import OutOfControlRig.temp_IK as temp_IK
+import OutOfControlRig.skeleton as skeleton
 import OutOfControlRig.collection as collection
 
 RIG_NAME = "OutOfControlRig"
@@ -48,16 +50,17 @@ class Rig(object):
         selection = pmc.ls(RIG_NAME, r=True, type="objectSet")
         s.whitelist = filtered_selection = set(c for a in selection for b in a for c in b.getShapes())
         s.cache_inf, s.cache_pref = cache.preferred_joint_and_influence(filtered_selection)
+        s.cache_skele = skeleton.Bones(s.cache_inf)
 
     def rig_build(s):
         """ build up rig """
-        print "build rig".center(20, "-")
         running = True
+        for w in s.whitelist: colour.paint(w)
 
     def rig_teardown(s):
         """ remove up rig """
-        print "remove rig".center(20, "-")
         running = False
+        for w in s.whitelist: colour.erase(w)
 
     def drag_highlight(s, obj, face_id):
         """ highlight meshes """
@@ -79,19 +82,21 @@ class Rig(object):
             node = pmc.PyNode(string_name) # Convert to pymel again
             try:
                 joint = s.cache_pref[node][face_id]
-                influence = s.cache_inf[joint]
-                colour.paint(influence, GREEN)
-                pmc.select(joint, r=True)
+                # influence = s.cache_inf[joint]
+                # colour.paint(influence, GREEN)
                 s.tool.unset()
+                limb = s.cache_skele.get_partial_limb(joint)
+                temp_IK.control(limb)
             except KeyError:
                 print "Missing node", node
 
 if __name__ == '__main__':
     # Testing
+    import random
     pmc.system.newFile(force=True)
-    xform, shape = pmc.polyCylinder(sy=5) # Create a cylinder and joints
-    jnt1, jnt2, jnt3 = pmc.joint(p=(0,-1,0)), pmc.joint(p=(0,0,0)), pmc.joint(p=(0,1,0))
-    sk = pmc.skinCluster(jnt1, xform, mi=1) # Bind them to the cylinder
+    xform, shape = pmc.polyCylinder(sy=5, h=6) # Create a cylinder and joints
+    jnts = [pmc.joint(p=(0,b,random.random() * 0.5)) for b in (a for a in range(-3, 4))]
+    sk = pmc.skinCluster(jnts[0], xform, mi=1) # Bind them to the cylinder
     pmc.select(xform, r=True)
     pmc.sets(n=RIG_NAME)
     Rig().set()

@@ -91,10 +91,28 @@ class Bones(object):
         res += "\n".join("Limb: %s" % a for a in s.limbs)
         return res
 
+    def limb_no_twist(s, limb):
+        """ Filter out twist joints """
+        for j1, j2 in limb.iteritems():
+            if j1 == j2: yield j1
+
     def get_real_joint(s, joint):
         """ Given a joint name, get corresponding non-twist joint """
         for limb in s.limbs:
             if joint in limb: return limb[joint]
+
+    def get_partial_limb(s, joint):
+        """ Given a joint return the limb ending at that joint """
+        result = []
+        for limb in s.limbs:
+            if joint in limb:
+                chain = s.limb_no_twist(limb)
+                real_joint = limb[joint] # Get non-twist joint
+                for j in chain:
+                    result.append(j)
+                    if j == real_joint:
+                        return result
+        return result
 
 
 if __name__ == '__main__':
@@ -108,3 +126,5 @@ if __name__ == '__main__':
     print repr(skel.get_real_joint(jnts[1]))
     print "Skeleton".center(20, "-")
     print skel
+    print "Partial".center(20, "-")
+    print skel.get_partial_limb(jnts[4])
