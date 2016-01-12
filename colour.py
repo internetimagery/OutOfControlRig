@@ -21,7 +21,7 @@ def paint(selection, colour=None):
     if paint.last:
         try:
             pmc.polyColorPerVertex(paint.last, rgb=BASE_COLOUR, cdo=True)
-        except RuntimeError as e:
+        except pmc.MayaNodeError as e:
             print e
     pmc.polyColorPerVertex(selection, rgb=colour, cdo=True)
     paint.last = selection

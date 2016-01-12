@@ -36,8 +36,8 @@ class Rig(object):
             drag=s.drag_highlight,
             click=s.click_highlight,
         )
-        pmc.scriptJob(e=("PostSceneRead", s.refresh_whitelist), kws=True) # Keep whitelist up to date
-        pmc.scriptJob(e=("NewSceneOpened", s.refresh_whitelist), kws=True)
+        # pmc.scriptJob(e=("PostSceneRead", s.refresh_whitelist)) # Keep whitelist up to date
+        # pmc.scriptJob(e=("NewSceneOpened", s.refresh_whitelist))
 
     def set(s):
         """ Set tool """
@@ -85,13 +85,6 @@ class Rig(object):
                 s.tool.unset()
             except KeyError:
                 print "Missing node", node
-        else:
-            pass
-            # for obj in s.whitelist:
-            #     colour.erase(obj)
-
-        # s.tool.unset()S
-
 
 if __name__ == '__main__':
     # Testing
