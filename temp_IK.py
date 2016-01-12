@@ -22,6 +22,12 @@ from maya.api.OpenMaya import MSceneMessage as scene
 import maya.api.OpenMaya as om
 
 KEY = functools.partial(pmc.keyframe, q=True, tc=True, vc=True)
+RESET = {
+    "aimConstraint": lambda x: cmds.aimConstraint(x, e=True, mo=True),
+    "pointConstraint": lambda x: cmds.pointConstraint(x, e=True, mo=True),
+    "orientConstraint": lambda x: cmds.orientConstraint(x, e=True, mo=True),
+    "parentConstraint": lambda x: cmds.parentConstraint(cmds.parentConstraint(x, q=True, tl=True), x, e=True, mo=True)
+}
 
 TEARDOWN_QUEUE = set()
 def before_save(*_):

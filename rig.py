@@ -51,7 +51,7 @@ class Control(object):
     def cache(s, geos):
         """ Cache some meshes for use """
         s.geos = geos = dict((a, has.skin(a)) for a in geos) # Get skins
-        s.cache_weights, s.cache_influence = cache.skins()
+        s.cache_influence, s.cache_pref = cache.preferred_joint_and_influence()
         s.cache_all = ",".join("%s.vtx[0:]" % a for a in geos) # Everything!
 
     def activate_rig(s):

@@ -35,46 +35,55 @@ class Picker(object):
         s.stop = stop # Callback
         s.click = click # Callback
         s.drag = drag # Callback
-        s.last_tool = pmc.currentCtx() # Last tool used
+        s.watch_tools() # Initialize tool watching
 
         s.kill() # Clear out last tool if there
         pmc.context.draggerContext(
             s.name,
             name=s.name,
+            prePressCommand=s.initialize_click,
             releaseCommand=s.call_click,
             dragCommand=s.call_drag,
+            initialize=s.tool_start,
+            finalize=s.tool_end,
             cursor="hand",
             image1="hands.png",
             undoMode="sequence",
         )
 
         # Track tool changes, allowing us to track previous tool
-        pmc.scriptJob(e=("PostToolChanged", s.track_change),p=s.name)
+        pmc.scriptJob(e=("PostToolChanged", s.watch_tools),p=s.name)
+
+    def tool_end(s):
+        """ Report we have ended the tool """
+        if s.active:
+            s.stop()
+        s.active = False
+
+    def tool_start(s):
+        """ Report we have started the tool """
+        s.active = True
+        s.start()
+
+    def watch_tools(s):
+        """ Track changes to tools """
+        curr_tool = pmc.currentCtx()
+        if curr_tool != s.name: s.last_tool = curr_tool
 
     def set(s):
         """ Activate Tool """
-        last_tool, name = pmc.currentCtx(), s.name
-        if last_tool != name:
-            s.last_tool = last_tool
-            pmc.setToolTo(name) # Set our tool to the active tool
+        pmc.setToolTo(s.name) # Set our tool to the active tool
 
     def unset(s):
         """ Set us back to the last tool """
-        pmc.setToolTo(s.last_tool)
+        if s.active:
+            pmc.setToolTo(s.last_tool)
 
-    def track_change(s):
-        """ Watch for tool changes """
-        tool = pmc.currentCtx()
-        call1, call2 = s.start, s.stop
-        if tool == s.name:
-            if not s.active: # Not yet running
-                s.active = True
-                if call1: call1()
-        else:
-            if s.active: # Turning off
-                s.active = False
-                if call2: call2()
-            s.last_tool = tool
+    def initialize_click(s):
+        """ Set up meshes etc for clicking """
+        s.whitelist = sel = om.MSelectionList()
+        for m in s.meshes():
+            sel.add(str(m))
 
     def call_click(s):
         """ Call back click events """
@@ -99,7 +108,7 @@ class Picker(object):
             # Run through our meshes, casting a ray on each and checking for hits
             ray_args = (om.MFloatPoint(position), om.MFloatVector(direction), om.MSpace.kWorld, 99999, False)
 
-            for m in loop(s.meshes()):
+            for m in loop(s.whitelist):
                 intersection = om.MFnMesh(m.getDagPath()).closestIntersection(*ray_args)
                 if intersection and intersection[3] != -1: # We have a hit!
                     return m.getDependNode(), intersection[2] # Hit mesh, and face ID
@@ -128,12 +137,10 @@ if __name__ == '__main__':
     def rand_pos(): return [random.random() * 10 - 5 for a in range(3)]
     pmc.system.newFile(force=True)
     objs = [pmc.polySphere()[0] for a in range(10)]
-    sel = om.MSelectionList()
-    for o in objs:
-        pmc.xform(o, t=rand_pos())
-        sel.add(str(o))
+    for o in objs: pmc.xform(o, t=rand_pos())
+
     p = Picker(
-        (lambda: sel),
+        (lambda: objs),
         start,
         stop,
         clicked,
